@@ -611,10 +611,10 @@
   }
 
   /* ═══ 第三部 Markdown 自动备份（2026-10-19）═══
-     每次保存后 debounce 60 秒自动导出一份；每天首次打开也补一份（LS_MD_DATE 记日期去重）。
+     ★陛下旨意（2026-10-19 22:35）：只在有改动时触发——saveLive 后 debounce 60 秒自动导出一份；
+     打开页面绝不触发（此前「每天首次打开补一份」的逻辑只要点开就弹下载，电脑手机皆扰，已废）。
      文件落 Edge 下载目录（E:\WorkBuddy\三元归一\_第三部备份\），每周五 23:30 由定时任务上传 IMA 营销库。
      JSON 不在 IMA 的 MIME 对照表，故转 Markdown（人可读、IMA 里直接看）。 */
-  var LS_MD_DATE='wb_mbb_desk_md_date_v1';
   var mdTimer=null;
   function mdCell(s){ return String(s==null?'':s).replace(/\|/g,'\\|').replace(/\s+/g,' ').trim()||'—'; }
   function buildLiveMD(){
@@ -642,10 +642,9 @@
       a.download='作战板第三部备份_'+stamp+'.md';
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(function(){ try{URL.revokeObjectURL(a.href);}catch(e){} },1000);
-      lsSet(LS_MD_DATE, todayStr());
     }catch(e){}
   }
-  function scheduleMDExport(){ clearTimeout(mdTimer); mdTimer=setTimeout(autoExportMD, 60000); }
+  function scheduleMDExport(){ /* 手机只读版：禁用自动导出 */ }
   function bindDataTools(){
     document.getElementById('btnExport').addEventListener('click',exportJSON);
     document.getElementById('btnExportMD').addEventListener('click',autoExportMD);
@@ -779,9 +778,6 @@
     bindDataTools();
     imaLaunchGuard();
     renderAll();
-
-    /* 每天首次打开补一份 MD 备份（同一天不重复；改动后的备份由 saveLive 的 60 秒防抖触发） */
-    if(lsGet(LS_MD_DATE)!==todayStr()){ autoExportMD(); }
 
     if(!LS_OK){
       var mb=document.getElementById('modeBadge');
