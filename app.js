@@ -13,9 +13,9 @@
 
   var SUB_LABEL = {'群-融资日报':'微信营销群融资日报','群-集成电路突击队':'集成电路突击队（群内文章）',
     '公众号文章':'公众号文章','半导体-日报':'半导体日报','半导体-手动资讯':'手动资讯','科技金融周报':'科技金融周报'};
-  var P2 = [{id:'mod-p21',type:'前瞻-科技活动',name:'科技活动前瞻周报',src:'营销库 / 活动'},
-            {id:'mod-p22',type:'目标-企业报告',name:'营销目标企业 · 最新一期',src:'营销库 / 营销目标 / 企业'},
-            {id:'mod-p23',type:'目标-机构报告',name:'营销目标机构 · 最新一期',src:'营销库 / 营销目标 / 机构'}];
+  var P2 = [{id:'mod-p21',type:'前瞻-科技活动',name:'科技活动前瞻周报',src:'营销库 / 活动',prefer:'科技活动前瞻周报'},
+            {id:'mod-p22',type:'目标-企业报告',name:'营销目标企业 · 最新一期',src:'营销库 / 营销目标 / 企业',prefer:'营销目标客户清单'},
+            {id:'mod-p23',type:'目标-机构报告',name:'营销目标机构 · 最新一期',src:'营销库 / 营销目标 / 机构',prefer:'归一待营销机构'}];
 
   function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
@@ -156,8 +156,16 @@
     /* 第二部：三卡改用条目格式（与第一部一致） */
     P2.forEach(function(m){
       var box=document.getElementById(m.id); if(!box) return;
-      var row=null;
-      for(var i=0;i<snapRows.length;i++){ if(snapRows[i]['类型']===m.type){ row=snapRows[i]; break; } }
+      /* 选记录：同类型多条时，优先标题含 prefer 关键词者（名单本体 > 同期补充报告，
+         如企业流中「微信关键人校验报告」不得压过「营销目标客户清单」）；
+         无 prefer 或无命中则回退首个同类型记录（旧行为，日期倒序下的最新一条） */
+      var row=null, fallback=null;
+      for(var i=0;i<snapRows.length;i++){
+        if(snapRows[i]['类型']!==m.type) continue;
+        if(!fallback) fallback=snapRows[i];
+        if(m.prefer && String(snapRows[i]['标题']||'').indexOf(m.prefer)>=0){ row=snapRows[i]; break; }
+      }
+      if(!row) row=fallback;
       if(!row){
         box.innerHTML='<h2>'+esc(m.name)+' <span class="chip mute">'+esc(m.src)+'</span></h2>'+
           '<div class="empty">暂无登记（等待跑批入库）</div>';

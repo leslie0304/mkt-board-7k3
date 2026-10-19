@@ -1,3 +1,2 @@
 User-agent: *
-Allow: /
-# rebuild-trigger: 2026-10-19T16:14Z (force fresh Pages build, previous stuck)
+Disallow: /
