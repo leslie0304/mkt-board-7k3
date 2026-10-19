@@ -3,6 +3,7 @@
   "short_name": "作战板",
   "description": "营销作战板手机查看版（只读）",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#F5F7FA",
   "theme_color": "#0E8C8C",
