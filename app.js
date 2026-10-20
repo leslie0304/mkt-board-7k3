@@ -105,16 +105,31 @@
     var enc = encodeURIComponent(inner);
     return 'imacopilot://open?url='+enc+'&opentab='+enc+'&launchChannel=10000162&target=viewer';
   }
-  /* ═══ IMA 移动端兜底（2026-10-20）：imacopilot:// 内置 chrome-extension 桌面扩展路径，
-       手机端无 handler → 全部失效。移动端改用网页版 ima.qq.com 并暴露 IMA 路径供手动定位。 ═══ */
+  /* ═══ IMA 移动端唤起（2026-10-20 修订）：IMA 客户端 bundle 内置 imacopilot:// scheme，
+       移动端 App 同源，裸 scheme 即可唤起 App（复刻「之前手机能跳」）。
+       兜底：点击后 2 秒若 App 未唤起（页面仍聚焦），转 IMA 网页版（已装则 Universal Link
+       再唤起，未装则进网页版看私库）。 ═══ */
   function isMobile(){
     return /Android|iPhone|iPod|iPad|Mobile|Windows Phone|HarmonyOS/i.test(navigator.userAgent||'');
   }
-  function imaWebUrl(r){
-    var kb=(r.imaKb)||KB['信息库'];
+  var IMA_WEB='https://ima.qq.com';
+  function imaMobileHref(r){
+    var kb=(r&&r.imaKb)||KB['信息库'];
     var sid=KB_SHARE[kb]||KB_SHARE['信息库'];
     if(sid) return 'https://ima.qq.com/wiki/?shareId='+encodeURIComponent(sid);
-    return 'https://ima.qq.com';
+    return 'imacopilot://open';  /* 裸 scheme 唤起 App（IMA bundle 实证有此 scheme） */
+  }
+  function bindImaMobileFallback(){
+    if(!isMobile()) return;
+    document.addEventListener('click', function(e){
+      var a=(e.target&&e.target.closest)?e.target.closest('a[data-mobile], a.ima-open'):null;
+      if(!a) return;
+      var href=a.getAttribute('href')||'';
+      if(href.indexOf('imacopilot://')!==0) return;  /* 仅处理 scheme 链接 */
+      setTimeout(function(){
+        if(document.hasFocus&&document.hasFocus()){ window.location.href=IMA_WEB; }  /* App 未唤起→网页版兜底 */
+      }, 2000);
+    }, true);
   }
   function copyImaPath(btn){
     var p=btn.getAttribute('data-path')||'';
@@ -128,8 +143,8 @@
   function fixImaOpenLinks(){
     if(!isMobile()) return;
     document.querySelectorAll('a.ima-open').forEach(function(a){
-      a.setAttribute('href', imaWebUrl({}));
-      a.setAttribute('title','手机端请用 IMA 网页版/分享链接（已装 App 会被直接唤起）');
+      a.setAttribute('href', imaMobileHref({}));
+      a.setAttribute('title','唤起 IMA App（未唤起自动转网页版）');
     });
   }
   /* ═══ 窗口规则（渲染函数内，禁入 query 回调——DSDK015） ═══ */
@@ -168,11 +183,12 @@
   function artItem(r){
     /* ★陛下旨意（2026-10-19）：一切经 ima 跳转直达条目。
        桌面：imacopilot:// 深链（有 imaMid 直达条目，无则落知识库层）。
-       手机：imacopilot:// 无 handler，改网页版 ima.qq.com + 复制路径按钮兜底。 */
+       手机：裸 imacopilot://open 唤起 App（IMA bundle 实证有此 scheme，复刻「之前能跳」），
+             未唤起自动转网页版 ima.qq.com + 复制路径按钮兜底。 */
     var hasMid=!!r.imaMid, main, copyBtn='';
     if(isMobile()){
-      main='<a class="a-link" data-ima="1" data-mobile="1" href="'+imaWebUrl(r)+'" '
-          +'title="手机端走 IMA 网页版/分享链接（已装 App 会被直接唤起至对应知识库）；也可在 IMA App 按下方路径查找">打开 IMA ↗</a>';
+      main='<a class="a-link" data-ima="1" data-mobile="1" href="'+imaMobileHref(r)+'" '
+          +'title="唤起 IMA App（未唤起自动转网页版）；也可在 IMA App 按下方路径查找">打开 IMA ↗</a>';
       copyBtn=' <button class="a-copy" type="button" data-path="'+esc(r['IMA路径']||'')+'" onclick="copyImaPath(this)">复制 IMA 路径</button>';
     } else {
       main='<a class="a-link" data-ima="1" href="'+imaUrl(r)+'" title="'+(hasMid?'在 ima 客户端直达该条目':'在 ima 客户端打开对应知识库')+'（若 ima 已开着，请先退出再点）">'+(hasMid?'IMA 直达 ↗':'打开 ima ↗')+'</a>';
@@ -672,6 +688,7 @@
     bindDataTools();
     imaLaunchGuard();
     fixImaOpenLinks();
+    bindImaMobileFallback();
     renderAll();
 
     if(!LS_OK){
