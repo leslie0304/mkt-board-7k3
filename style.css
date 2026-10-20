@@ -97,8 +97,12 @@
 
 
   /* ── 桌面版增量 ── */
-  .a-link{color:var(--pri);font-weight:700;text-decoration:none;white-space:nowrap}
+    .a-link{color:var(--pri);font-weight:700;text-decoration:none;white-space:nowrap}
   .a-link:hover{text-decoration:underline}
+  .a-copy{margin-left:6px;padding:3px 9px;border:1px solid var(--pri);border-radius:999px;
+    background:#fff;color:var(--pri);font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap}
+  .a-copy:hover{background:var(--pri);color:#fff}
+  .a-copy:active{transform:scale(.96)}
   .ima-toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:9999;
     display:flex;flex-direction:column;gap:4px;max-width:min(560px,92vw);
     padding:12px 18px;border-radius:12px;border:1px solid #F0C36D;
@@ -243,10 +247,27 @@
     .art-day .day-head .d-date{font-size:.88rem}
     .art-day .day-head .day-cnt{font-size:.78rem}
     .rec{padding:13px 13px;margin-bottom:10px;border-radius:11px}
-    .r-name{font-size:.99rem;font-weight:700}
-    .r-meta{font-size:.87rem;margin-top:6px;line-height:1.55}
+    /* ★特异度对等：桌面为 .rec .r-name(0-2-0)，此处必须同前缀后写才能覆盖（曾因 .r-name 单类被压致名单字号未放大） */
+    .rec .r-name{font-size:.99rem;font-weight:700}
+    .rec .r-meta{font-size:.87rem;margin-top:6px;line-height:1.55}
+    .rec .r-act{font-size:.87rem;line-height:1.6}
     .r-next{font-size:.87rem}
-    .r-top{flex-wrap:wrap;gap:6px;margin-bottom:6px}
+    .rec .r-top{flex-wrap:wrap;gap:6px;margin-bottom:6px}
+    /* 第二部「各取最近一期」大卡（桌面 .latest .l-* 同为 0-2-0，同特异度后写覆盖） */
+    .latest{padding:14px}
+    .latest .l-head{font-size:1.02rem}
+    .latest .l-sum{font-size:.9rem;line-height:1.65}
+    .latest .l-dir{font-size:.84rem;line-height:1.6}
+    /* 辅助小字抬升（手机上 12px 以下太挤） */
+    .grp-head .cnt{font-size:.78rem}
+    .grp-head .g-desc{font-size:.78rem}
+    .sub-head .cnt{font-size:.78rem}
+    .a-date{font-size:.76rem}
+    .a-path{font-size:.8rem}
+    .art-day .d-week{font-size:.76rem}
+    .win-chip{font-size:.76rem}
+    .empty{font-size:.88rem}
+    .err{font-size:.86rem}
     .chip{font-size:.75rem;padding:3px 9px}
     .grp-head{padding:8px 11px;font-size:.92rem}
     .note{font-size:.84rem;line-height:1.7;padding:10px 13px;margin-top:12px}
