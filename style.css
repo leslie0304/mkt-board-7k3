@@ -130,6 +130,47 @@
   .chip.prio-h{background:#FEE2E2;color:#B91C1C;border-color:#FECACA;font-weight:800}
   .chip.prio-m{background:#FEF3C7;color:#92400E;border-color:#FDE68A}
   .chip.prio-l{background:#F1F5F9;color:#64748B;border-color:#E2E8F0}
+  /* ── 第三部重点标记徽章（本周=红 / 下周=橙 / 下月=蓝 / 下季=紫）── */
+  .chip.tag-w{background:#FEE2E2;color:#B91C1C;border-color:#FECACA;font-weight:700}
+  .chip.tag-n{background:#FFEDD5;color:#C2410C;border-color:#FED7AA;font-weight:700}
+  .chip.tag-m{background:#DBEAFE;color:#1D4ED8;border-color:#BFDBFE;font-weight:700}
+  .chip.tag-q{background:#EDE9FE;color:#6D28D9;border-color:#DDD6FE;font-weight:700}
+  /* ── 第三部拜访时间徽章（青绿系，与主题色一致）── */
+  .chip.visit{background:#CCFBF1;color:#0F766E;border-color:#99F6E4;font-weight:700}
+  .chip.visit.late{background:#F1F5F9;color:#64748B;border-color:#E2E8F0;font-weight:600}
+  /* ── 第三部「下周拜访计划」标签行与面板 ── */
+  .plan-bar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:10px 0 8px}
+  .plan-btn{display:inline-flex;align-items:center;gap:7px;border:1px solid #0E8C8C;cursor:pointer;
+    background:linear-gradient(135deg,#0E8C8C,#0B6EA6);color:#fff;font-weight:800;font-size:.84rem;
+    padding:8px 16px;border-radius:999px;box-shadow:0 2px 6px rgba(14,140,140,.25)}
+  .plan-btn:hover{filter:brightness(1.08)}
+  .plan-btn .cal{flex:none}
+  .plan-cnt{font-size:.8rem;font-weight:800;color:#0F766E;background:#CCFBF1;border:1px solid #99F6E4;
+    padding:3px 11px;border-radius:999px}
+  .plan-range{font-size:.74rem;color:var(--ink2);font-weight:600}
+  .plan-panel{border:1px solid #A7DED9;background:linear-gradient(180deg,#F2FBFA,#FFFFFF);
+    border-radius:12px;padding:11px 13px;margin-bottom:10px}
+  .plan-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:9px}
+  .plan-head .pt{font-weight:800;font-size:.92rem;color:#0B6E6E}
+  .plan-head .pr{font-size:.74rem;color:var(--ink2);font-weight:600}
+  .plan-day{border:1px solid var(--line);border-radius:10px;background:#fff;margin-bottom:7px}
+  .plan-day-head{display:flex;align-items:center;gap:9px;padding:7px 11px;
+    background:linear-gradient(90deg,#E6F6F5,#F0F7FF);border-radius:10px 10px 0 0;font-weight:800;font-size:.82rem}
+  .plan-day-head .dd{color:#0B6E6E}
+  .plan-day-head .wd{color:var(--ink2);font-weight:700}
+  .plan-day-head .cnt{margin-left:auto;font-size:.72rem;font-weight:700;color:#0F766E;background:#E6F6F5;
+    border:1px solid #A7DED9;padding:1px 9px;border-radius:999px}
+  .plan-day-body{padding:5px 10px 7px}
+  .plan-rec{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:5px 2px;border-bottom:1px dashed #EEF2F6}
+  .plan-rec:last-child{border-bottom:none}
+  .plan-rec .r-name{font-weight:800;font-size:.85rem}
+  .plan-rec .r-next{font-size:.74rem;color:var(--ink2);width:100%;padding-left:2px}
+  .plan-empty{font-size:.78rem;color:var(--ink2);padding:9px 4px;border:1px dashed var(--line);
+    border-radius:9px;background:#FAFBFC;line-height:1.7}
+  .plan-sum{font-size:.74rem;color:var(--ink2);font-weight:600;margin-top:7px;line-height:1.6}
+  /* ── 第三部第二排筛选（重点节奏）：与前一组按钮区分 ── */
+  .filter-tag{margin-top:-4px}
+  .filter-tag .lb{font-size:.74rem;font-weight:700;color:var(--ink2);align-self:center;margin-right:2px}
   /* ── 第一部条目按日期分组 ── */
   .art-day{border:1px solid var(--line);border-radius:11px;margin-bottom:8px;background:#fff}
   .art-day .day-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 12px;cursor:pointer;

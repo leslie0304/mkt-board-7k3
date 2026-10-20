@@ -35,7 +35,7 @@
 </header>
 
 <main>
-  <div class="m-banner"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="6" y="2.5" width="12" height="19" rx="2.5" stroke="#B45309" stroke-width="1.8"/><path d="M10 18.5h4" stroke="#B45309" stroke-width="1.8" stroke-linecap="round"/></svg><span><b>手机查看版</b>（只读）｜数据截至 2026-10-19（IMA 种子快照）——<b>最新登记与修改请在电脑桌面版操作</b>；本页每周五随 IMA 备份链路更新。条目可点「打开 ima」直达原文（须手机安装 ima）。</span></div>
+  <div class="m-banner"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="6" y="2.5" width="12" height="19" rx="2.5" stroke="#B45309" stroke-width="1.8"/><path d="M10 18.5h4" stroke="#B45309" stroke-width="1.8" stroke-linecap="round"/></svg><span><b>手机查看版</b>（只读）｜数据截至 2026-10-20（IMA 种子快照）——<b>最新登记与修改请在电脑桌面版操作</b>；本页每周五随 IMA 备份链路更新。条目可点「打开 ima」直达原文（须手机安装 ima）。</span></div>
   <div class="focus" id="focusBar">
     <span class="f-t"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#B45309" stroke-width="1.8"/><path d="M12 7.5v5m0 3v.5" stroke="#B45309" stroke-width="2.2" stroke-linecap="round"/></svg>总览</span>
     <span class="f-i" id="focusTxt">正在读取…</span>
@@ -93,13 +93,15 @@
   </div>
 
   <!-- ═══ 第三部分 · 营销具体推进 ═══ -->
-  <div class="part-title"><span class="pt-no">第三部</span>营销具体推进<span class="hint">计划营销的企业一一罗列 · 按 授信 / 拜访 / 活动 / 潜在机会 / 其他待办 五组呈现 · 每条可标 高/中/低 优先级 · 本地登记仅存本机</span></div>
+  <div class="part-title"><span class="pt-no">第三部</span>营销具体推进<span class="hint">计划营销的企业一一罗列 · 按 授信 / 拜访 / 活动 / 潜在机会 / 其他待办 五组呈现 · 每条可标 高/中/低 优先级与 本周/下周/下月/下季 重点节奏 · 可填「拜访时间」生成下周拜访行程</span></div>
   <section class="card">
     <h2>正在营销 <span class="hint">仅营销中企业（已合作不在此页）；分组：授信 / 拜访 / 活动 / 潜在机会 / 其他待办</span></h2>
     <div class="form-grid">
       <input type="text" name="企业机构" placeholder="企业名称" class="f-wide" maxlength="40">
       <select name="营销阶段"><option value="">营销分组</option></select>
       <select name="优先级"><option value="">优先级</option></select>
+      <select name="重点标记"><option value="">重点节奏</option></select>
+      <input type="date" name="拜访时间" title="下次拜访时间（可留空）">
       <input type="date" name="最近更新" title="最近更新">
       <input type="text" name="当前情况" placeholder="当前情况，如 5000万已批·待放款" class="f-wide" maxlength="60">
       <input type="text" name="下一步动作" placeholder="下一步动作，如 约首次拜访" class="f-wide" maxlength="60">
@@ -113,12 +115,30 @@
       <button data-f="潜在机会" type="button">潜在机会</button>
       <button data-f="其他待办" type="button">其他待办</button>
     </div>
+    <div class="filter filter-tag" id="liveFilterTag">
+      <span class="lb">重点节奏</span>
+      <button data-f="all" class="on" type="button">全部</button>
+      <button data-f="本周重点" type="button">本周重点</button>
+      <button data-f="下周重点" type="button">下周重点</button>
+      <button data-f="下月重点" type="button">下月重点</button>
+      <button data-f="下季重点" type="button">下季重点</button>
+    </div>
+    <div class="plan-bar" id="planBar">
+      <button class="plan-btn" id="btnPlan" type="button" aria-expanded="false">
+        <svg class="cal" width="15" height="15" viewBox="0 0 24 24" fill="none">
+          <rect x="3" y="5" width="18" height="16" rx="2.5" stroke="#fff" stroke-width="1.8"/>
+          <path d="M3 10h18M8 3v4M16 3v4" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>
+        下周拜访计划</button>
+      <span class="plan-cnt" id="planCnt">下周共 0 家</span>
+      <span class="plan-range" id="planRange"></span>
+    </div>
+    <div class="plan-panel" id="planPanel" style="display:none"></div>
     <div id="liveList"></div>
-    <div class="note">本地说明：第一部/第二部为种子快照（IMA 每日 22:00 跑批的静态副本），本机可导出备份；第三部分五组登记（授信/拜访/活动/潜在机会/其他待办），写本机 localStorage，换电脑请用「导出/导入」迁移。优先级分 高/中/低 三档（默认中），列表按优先级优先、同级按更新日期排序；每次改动约 1 分钟后自动生成 Markdown 备份，每周五上传 IMA 营销库。</div>
+    <div class="note">本地说明：第一部/第二部为种子快照（IMA 每日 22:00 跑批的静态副本），本机可导出备份；第三部分五组登记（授信/拜访/活动/潜在机会/其他待办），写本机 localStorage，换电脑请用「导出/导入」迁移。优先级分 高/中/低 三档（默认中）；重点节奏分 本周/下周/下月/下季 四档，可留空、可两排筛选联动（分组 × 节奏）；「拜访时间」填下次上门日期，点上方「下周拜访计划」即按周一到周日生成本周行程清单。列表按优先级优先、同级按重点节奏（本周在前）与更新日期排序；每次改动约 1 分钟后自动生成 Markdown 备份，每周五上传 IMA 营销库。</div>
   </section>
 </main>
 
-<footer>营销作战板 · 手机查看版（只读）｜ 构建于 2026-10-19 ｜ 数据截至 2026-10-19 ｜ 登记请用电脑桌面版 ｜ 与「三元营销指挥台」配套使用</footer>
+<footer>营销作战板 · 手机查看版（只读）｜ 构建于 2026-10-20 ｜ 数据截至 2026-10-20 ｜ 登记请用电脑桌面版 ｜ 与「三元营销指挥台」配套使用</footer>
 <script src="app.js"></script>
 </body>
 </html>
