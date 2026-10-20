@@ -201,18 +201,68 @@
   .form-grid,.form-foot,.r-edit,.r-del{display:none !important}
   /* 只读：隐藏数据工具按钮（保留徽标与指挥台链接） */
   #btnExport,#btnExportMD,#btnImport,#btnRestore{display:none !important}
-  /* 手机版微调 */
+  /* 平滑锚点跳转 */
+  html{scroll-behavior:smooth}
+  /* ═══ 快速跳转胶囊（PC 不显示）═══ */
+  .m-jump{display:none}
   @media (max-width:767px){
-    .brand .sub{display:none}
-    .tools .badge{font-size:.62rem;padding:2px 7px}
-    .rec{padding:9px 11px}
-    .r-top{flex-wrap:wrap;gap:5px}
-    .r-name{font-size:.86rem}
-    .grp-head{padding:6px 9px}
+    /* ── ① 结构导览条：三部锚点直达，治「内容太多」 ── */
+    .m-jump{display:flex;gap:8px;margin:8px 0 12px;overflow-x:auto;padding:2px 2px 4px;
+      -webkit-overflow-scrolling:touch;scrollbar-width:none}
+    .m-jump::-webkit-scrollbar{display:none}
+    .m-jump a{flex:none;display:inline-flex;align-items:center;min-height:38px;padding:6px 15px;
+      border-radius:999px;background:var(--card);border:1px solid var(--line);
+      font-size:.9rem;font-weight:600;color:var(--ink2);text-decoration:none;
+      box-shadow:0 1px 2px rgba(30,36,51,.05)}
+    .m-jump a:active{transform:scale(.97)}
+    .m-jump a.hot{background:var(--teal);border-color:var(--teal);color:#fff}
+    .part-title{scroll-margin-top:14px}
+    /* ── ② 字号体系上调（根 17px + 点名放大，正文 ≥14px） ── */
+    html{font-size:17px}
+    body{line-height:1.6}
+    main{padding:14px 12px}
+    .brand{font-size:1.02rem}
+    .tools .badge{font-size:.7rem;padding:3px 9px}
+    .part-title{font-size:1.04rem;margin:20px 2px 10px;gap:8px}
+    .part-title .pt-no{font-size:.86rem;padding:2px 9px}
+    .card{padding:16px 14px;border-radius:13px;margin-bottom:16px}
+    .card h2{font-size:1.06rem;line-height:1.4}
+    .card h2 .hint{font-size:.8rem}
+    .mod-head{gap:8px;margin-bottom:6px}
+    .mod-head .m-no{width:26px;height:26px;font-size:.84rem}
+    .mod-head .m-name{font-size:1.02rem}
+    .mod-head .m-src{font-size:.78rem}
+    .mod-head .btn.sm{min-height:36px;font-size:.8rem;padding:6px 11px}
+    .sub-block{margin-top:8px}
+    .art{border-radius:10px;margin-bottom:10px}
+    .a-title{font-size:.97rem;line-height:1.5;gap:8px}
+    .a-sum{font-size:.9rem;line-height:1.65;padding-top:9px}
+    .a-body{padding:0 12px 12px}
     .a-link{white-space:normal}
-    .art-day .day-head{padding:8px 10px}
-    .part-title{font-size:.86rem}
+    .art-day .day-head{padding:9px 11px;gap:8px}
+    .art-day .day-head .d-date{font-size:.88rem}
+    .art-day .day-head .day-cnt{font-size:.78rem}
+    .rec{padding:13px 13px;margin-bottom:10px;border-radius:11px}
+    .r-name{font-size:.99rem;font-weight:700}
+    .r-meta{font-size:.87rem;margin-top:6px;line-height:1.55}
+    .r-next{font-size:.87rem}
+    .r-top{flex-wrap:wrap;gap:6px;margin-bottom:6px}
+    .chip{font-size:.75rem;padding:3px 9px}
+    .grp-head{padding:8px 11px;font-size:.92rem}
+    .note{font-size:.84rem;line-height:1.7;padding:10px 13px;margin-top:12px}
+    /* 筛选与重点节奏按钮：触达优先 */
+    .filter{gap:7px;margin:10px 0}
+    .filter button{min-height:40px;font-size:.86rem;padding:6px 13px}
+    .filter-tag{gap:6px}
+    .filter-tag .lb{font-size:.8rem}
+    .brand .sub{display:none}
     .part-title .hint{display:none}
-    .mod-head{flex-wrap:wrap;gap:6px}
-    .note{font-size:.72rem}
+    /* 下周拜访计划（第三部核心，mobile 上重点可读） */
+    .plan-btn{min-height:42px;font-size:.92rem}
+    .plan-cnt,.plan-range{font-size:.8rem}
+    .plan-day-head{padding:8px 11px;font-size:.9rem}
+    .plan-rec{padding:8px 10px}
+    .plan-rec .r-name{font-size:.94rem}
+    .plan-rec .r-next{font-size:.84rem}
+    .r-time{font-size:.78rem;padding:2px 8px}
   }
