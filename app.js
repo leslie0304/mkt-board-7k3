@@ -32,7 +32,19 @@
     var sunday=new Date(monday.getFullYear(),monday.getMonth(),monday.getDate()+6);
     return {s:fmtDate(monday),e:fmtDate(sunday),ms:monday,es:sunday};
   }
-  function visitOf(r){ return d10(r['拜访时间']); }
+  /* 拜访时间取值：兼容纯日期（2026-10-28）与日期+时刻（2026-10-28T14:30，datetime-local 原生格式，陛下旨意 2026-10-20） */
+  function visitFull(r){ return String(r['拜访时间']==null?'':r['拜访时间']); }
+  function visitOf(r){ return d10(visitFull(r)); }  /* 日期部分：窗口过滤/按天归组/过期判定 */
+  function visitTime(r){ var m=/T(\d{2}:\d{2})/.exec(visitFull(r)); return (m&&m[1]!=='00:00')?m[1]:''; }  /* 时刻部分：00:00 视为未定 */
+  function normVisit(v){  /* 存库前归一：容错 T00:00(:00)Z 尾巴 → 回落纯日期 */
+    v=String(v==null?'':v).trim(); if(!v) return '';
+    var m=/^(\d{4}-\d{2}-\d{2})(?:T(\d{2}:\d{2}))?/.exec(v);
+    return m ? ((m[2]&&m[2]!=='00:00') ? m[1]+'T'+m[2] : m[1]) : v.slice(0,16);
+  }
+  function visitFillVal(r){  /* 编辑回填：datetime-local 须完整值；旧纯日期补 T00:00 占位（00:00=当天未定时刻） */
+    var v=visitFull(r); if(!v) return '';
+    return /T\d{2}:\d{2}/.test(v) ? v.slice(0,16) : v.slice(0,10)+'T00:00';
+  }
   function byDateDesc(a,b){ return (d10(b['日期'])||'').localeCompare(d10(a['日期'])||''); }
   /* 第三部排序：优先级（高→中→低）→ 重点节奏（本周→下周→下月→下季→未标）→ 最近更新倒序 */
   var PRIO_ORDER={'高':0,'中':1,'低':2};
@@ -54,10 +66,14 @@
     try{ localStorage.setItem('wb_mbb_desk_probe','1'); localStorage.removeItem('wb_mbb_desk_probe'); }
     catch(e){ LS_OK=false; }
   }
+  /* 行对象深拷贝（行为扁平字符串表，逐行浅拷即够）：★防种子被编辑污染——
+     此前 SEED.slice() 为数组浅拷，行对象与种子别名，改一行即改「初始」数据，恢复初始名存实亡（2026-10-20 修） */
+  function cloneRows(arr){ return arr.map(function(r){ var o={}; for(var k in r){
+    if(Object.prototype.hasOwnProperty.call(r,k)) o[k]=r[k]; } return o; }); }
   function loadRows(key,seed){
     var raw=lsGet(key);
     if(raw){ try{ var d=JSON.parse(raw); if(Object.prototype.toString.call(d)==='[object Array]') return d; }catch(e){} }
-    return seed.slice();
+    return cloneRows(seed);
   }
   var snapRows=[], liveRows=[];
   function saveSnap(){ lsSet(LS_SNAP, JSON.stringify(snapRows)); }
@@ -227,11 +243,12 @@
     var t=tagOf(r); if(!t) return '';
     return '<span class="chip '+TAG_CLS[t]+'" title="重点节奏">'+esc(t)+'</span>';
   }
-  /* 拜访时间徽章：有值才渲染（存量空白数据不显示）；已过期标灰 */
+  /* 拜访时间徽章：有值才渲染（存量空白数据不显示）；已过期标灰；有具体时刻则缀上（00:00 视为未定不显示） */
   function visitChip(r){
-    var v=visitOf(r); if(!v) return '';
-    var late = v < todayStr();
-    return '<span class="chip visit'+(late?' late':'')+'" title="下次拜访时间">拜访 '+esc(v.slice(5))+' '+esc(wdOf(v))+(late?'（已过期）':'')+'</span>';
+    var d=visitOf(r); if(!d) return '';
+    var late = d < todayStr();
+    var tm=visitTime(r);
+    return '<span class="chip visit'+(late?' late':'')+'" title="下次拜访时间'+(tm?' '+tm:'')+'">拜访 '+esc(d.slice(5))+' '+esc(wdOf(d))+(tm?' '+esc(tm):'')+(late?'（已过期）':'')+'</span>';
   }
   function groupChip(r){ var g=groupOf(r); return '<span class="chip '+(GROUP_CLS[g]||'mute')+'">'+esc(g)+'</span>'; }
   function prioChip(r){ var p=prioOf(r); return '<span class="chip '+(PRIO_CLS[p]||'prio-m')+'" title="优先级">'+esc(p)+'</span>'; }
@@ -278,14 +295,18 @@
 
   /* ═══ 下周拜访计划（陛下旨意 2026-10-20）═══
      点「下周拜访计划」标签 → 展开面板：以真实「今天」推下周（周一~周日）七天骨架，
-     把填写了「拜访时间」且落在下周的正在营销记录，按日期正序（同日内按 优先级→重点节奏）排入各天。
+     把填写了「拜访时间」且落在下周的正在营销记录，按日期正序（同日内先按时刻、再按 优先级→重点节奏）排入各天。
      需要手排行程时才动数——非全自动排程。 */
   function planRows(){
-    var w=weekRange(), t=todayStr();
+    var w=weekRange();
     return liveRows.filter(function(r){
       var v=visitOf(r); return v && v>=w.s && v<=w.e;
     }).sort(function(a,b){
-      var va=visitOf(a), vb=visitOf(b); if(va!==vb) return va<vb?-1:1;
+      /* 先按日期正序；同日内按时刻（00:00 未定排最前）；再按 优先级→重点节奏→更新倒序 */
+      var va=visitOf(a), vb=visitOf(b);
+      if(va!==vb) return va<vb?-1:1;
+      var fa=visitFull(a), fb=visitFull(b);
+      if(fa!==fb) return fa<fb?-1:1;
       return byLiveDesc(a,b);
     });
   }
@@ -297,7 +318,9 @@
     return {past:past,later:later};
   }
   function planRecLine(r){
+    var tm=visitTime(r);
     return '<div class="plan-rec"><span class="r-name">'+esc(r['企业机构'])+'</span>'+
+      (tm?'<span class="r-time" title="拜访时刻">'+esc(tm)+'</span>':'')+
       groupChip(r)+prioChip(r)+tagChip(r)+
       '<span class="r-next">下一步：'+esc(r['下一步动作']||'—')+'</span></div>';
   }
@@ -310,7 +333,7 @@
       '<span class="pr">下周 '+w.s+'（'+wdOf(w.s)+'） ~ '+w.e+'（'+wdOf(w.e)+'）</span></div>';
     if(!rows.length){
       h+='<div class="plan-empty">下周暂无拜访安排。<br>'+
-        '① 在下方登记/修改正在营销记录时填「拜访时间」（上门日期）；<br>'+
+        '① 在下方登记/修改正在营销记录时填「拜访时间」（上门日期与时刻）；<br>'+
         '② 时间落在下周的记录会自动排进本清单（周一到周日）。</div>';
     }else{
       for(var i=0;i<7;i++){
@@ -441,7 +464,7 @@
       if(!gr.length){ L.push('暂无记录',''); return; }
       L.push('| 优先级 | 重点 | 拜访时间 | 企业机构 | 当前情况 | 下一步动作 | 最近更新 |','| --- | --- | --- | --- | --- | --- | --- |');
       gr.forEach(function(r){
-        L.push('| '+mdCell(prioOf(r))+' | '+mdCell(tagOf(r))+' | '+mdCell(visitOf(r))+' | '+mdCell(r['企业机构'])+' | '+mdCell(r['当前情况'])+' | '+mdCell(r['下一步动作'])+' | '+mdCell(d10(r['最近更新']))+' |');
+        L.push('| '+mdCell(prioOf(r))+' | '+mdCell(tagOf(r))+' | '+mdCell(visitFull(r).replace('T',' '))+' | '+mdCell(r['企业机构'])+' | '+mdCell(r['当前情况'])+' | '+mdCell(r['下一步动作'])+' | '+mdCell(d10(r['最近更新']))+' |');
       });
       L.push('');
     });
@@ -490,7 +513,7 @@
     });
     document.getElementById('btnRestore').addEventListener('click',function(){
       if(!confirm('恢复初始数据？本机的新增/修改将被清除（建议先「导出数据」备份）。')) return;
-      snapRows=SEED_SNAP.slice(); liveRows=SEED_LIVE.slice();
+      snapRows=cloneRows(SEED_SNAP); liveRows=cloneRows(SEED_LIVE);
       snapRows.sort(byDateDesc); liveRows.sort(byLiveDesc);
       saveSnap(); saveLive(); renderAll();
     });
@@ -550,7 +573,7 @@
       liveCard.querySelector('[name="营销阶段"]').value=r['营销阶段']||'';
       liveCard.querySelector('[name="优先级"]').value=prioOf(r);
       liveCard.querySelector('[name="重点标记"]').value=tagOf(r);
-      liveCard.querySelector('[name="拜访时间"]').value=visitOf(r);
+      liveCard.querySelector('[name="拜访时间"]').value=visitFillVal(r);  /* 兼容旧纯日期：补 T00:00 占位 */
       liveCard.querySelector('[name="当前情况"]').value=r['当前情况']||'';
       liveCard.querySelector('[name="下一步动作"]').value=r['下一步动作']||'';
       document.getElementById('btnAddLive').textContent='保存修改';
@@ -587,7 +610,7 @@
         r['营销阶段']=val(liveCard,'营销阶段')||'其他';
         r['优先级']=val(liveCard,'优先级')||'中';
         r['重点标记']=val(liveCard,'重点标记');
-        r['拜访时间']=val(liveCard,'拜访时间');
+        r['拜访时间']=normVisit(val(liveCard,'拜访时间'));  /* 00:00 未定时刻回落纯日期存储 */
         r['当前情况']=val(liveCard,'当前情况');
         r['下一步动作']=val(liveCard,'下一步动作');
         r['最近更新']=todayStr();  /* 陛下旨意 2026-10-20：最近更新撤出表单，保存即自动记当天 */
@@ -600,7 +623,7 @@
         '营销阶段':val(liveCard,'营销阶段')||'其他',
         '优先级':val(liveCard,'优先级')||'中',
         '重点标记':val(liveCard,'重点标记'),
-        '拜访时间':val(liveCard,'拜访时间'),
+        '拜访时间':normVisit(val(liveCard,'拜访时间')),  /* 00:00 未定时刻回落纯日期存储 */
         '当前情况':val(liveCard,'当前情况'),
         '下一步动作':val(liveCard,'下一步动作'),
         '最近更新':todayStr()  /* 陛下旨意 2026-10-20：登记即记当天，不手填 */

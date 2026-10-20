@@ -164,6 +164,7 @@
   .plan-rec{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:5px 2px;border-bottom:1px dashed #EEF2F6}
   .plan-rec:last-child{border-bottom:none}
   .plan-rec .r-name{font-weight:800;font-size:.85rem}
+  .plan-rec .r-time{font-weight:800;font-size:.78rem;color:#1D4ED8;background:#EFF6FF;border:1px solid #BFDBFE;padding:1px 9px;border-radius:999px}
   .plan-rec .r-next{font-size:.74rem;color:var(--ink2);width:100%;padding-left:2px}
   .plan-empty{font-size:.78rem;color:var(--ink2);padding:9px 4px;border:1px dashed var(--line);
     border-radius:9px;background:#FAFBFC;line-height:1.7}
