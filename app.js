@@ -551,7 +551,6 @@
       liveCard.querySelector('[name="优先级"]').value=prioOf(r);
       liveCard.querySelector('[name="重点标记"]').value=tagOf(r);
       liveCard.querySelector('[name="拜访时间"]').value=visitOf(r);
-      liveCard.querySelector('[name="最近更新"]').value=d10(r['最近更新']);
       liveCard.querySelector('[name="当前情况"]').value=r['当前情况']||'';
       liveCard.querySelector('[name="下一步动作"]').value=r['下一步动作']||'';
       document.getElementById('btnAddLive').textContent='保存修改';
@@ -591,7 +590,7 @@
         r['拜访时间']=val(liveCard,'拜访时间');
         r['当前情况']=val(liveCard,'当前情况');
         r['下一步动作']=val(liveCard,'下一步动作');
-        r['最近更新']=val(liveCard,'最近更新')||todayStr();
+        r['最近更新']=todayStr();  /* 陛下旨意 2026-10-20：最近更新撤出表单，保存即自动记当天 */
         liveRows.sort(byLiveDesc); saveLive();
         exitEdit(); updatePlanTag(); renderPlan(); renderFocus();
         return;
@@ -604,7 +603,7 @@
         '拜访时间':val(liveCard,'拜访时间'),
         '当前情况':val(liveCard,'当前情况'),
         '下一步动作':val(liveCard,'下一步动作'),
-        '最近更新':val(liveCard,'最近更新')||todayStr()
+        '最近更新':todayStr()  /* 陛下旨意 2026-10-20：登记即记当天，不手填 */
       };
       liveRows.unshift(row); liveRows.sort(byLiveDesc); saveLive();
       liveCache.clear(); liveCache.reset(); renderLive(); updatePlanTag(); renderPlan(); renderFocus();

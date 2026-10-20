@@ -101,8 +101,7 @@
       <select name="营销阶段"><option value="">营销分组</option></select>
       <select name="优先级"><option value="">优先级</option></select>
       <select name="重点标记"><option value="">重点节奏</option></select>
-      <input type="date" name="拜访时间" title="下次拜访时间（可留空）">
-      <input type="date" name="最近更新" title="最近更新">
+      <input type="date" name="拜访时间" title="下次上门拜访日期（可留空）">
       <input type="text" name="当前情况" placeholder="当前情况，如 5000万已批·待放款" class="f-wide" maxlength="60">
       <input type="text" name="下一步动作" placeholder="下一步动作，如 约首次拜访" class="f-wide" maxlength="60">
     </div>
@@ -134,7 +133,7 @@
     </div>
     <div class="plan-panel" id="planPanel" style="display:none"></div>
     <div id="liveList"></div>
-    <div class="note">本地说明：第一部/第二部为种子快照（IMA 每日 22:00 跑批的静态副本），本机可导出备份；第三部分五组登记（授信/拜访/活动/潜在机会/其他待办），写本机 localStorage，换电脑请用「导出/导入」迁移。优先级分 高/中/低 三档（默认中）；重点节奏分 本周/下周/下月/下季 四档，可留空、可两排筛选联动（分组 × 节奏）；「拜访时间」填下次上门日期，点上方「下周拜访计划」即按周一到周日生成本周行程清单。列表按优先级优先、同级按重点节奏（本周在前）与更新日期排序；每次改动约 1 分钟后自动生成 Markdown 备份，每周五上传 IMA 营销库。</div>
+    <div class="note">本地说明：第一部/第二部为种子快照（IMA 每日 22:00 跑批的静态副本），本机可导出备份；第三部分五组登记（授信/拜访/活动/潜在机会/其他待办），写本机 localStorage，换电脑请用「导出/导入」迁移。优先级分 高/中/低 三档（默认中）；重点节奏分 本周/下周/下月/下季 四档，可留空、可两排筛选联动（分组 × 节奏）；「拜访时间」填下次上门日期，点上方「下周拜访计划」即按周一到周日生成本周行程清单；「最近更新」已撤出表单，登记/保存时由系统自动记为当天（历史种子的旧日期照常显示）。列表按优先级优先、同级按重点节奏（本周在前）与更新日期排序；每次改动约 1 分钟后自动生成 Markdown 备份，每周五上传 IMA 营销库。</div>
   </section>
 </main>
 
