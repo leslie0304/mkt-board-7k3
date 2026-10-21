@@ -200,6 +200,17 @@
     padding:1px 7px;margin-left:6px;flex:none;vertical-align:middle}
   .read-stat{font-size:.72rem;color:var(--ink2);font-weight:600}
   .read-stat b{color:var(--ok)}
+  /* ── 已读级联（2026-10-21圣意）：组内条目全读 → 日期组头收敛为已读态；子块/卡片全读 → 栏目头同此 ── */
+  .art-day.allread{border-color:#E1EAE6;background:#FAFBFC;box-shadow:none}
+  .art-day.allread .day-head{background:linear-gradient(90deg,#F3F7F5,#F8FAF9);color:var(--ink2)}
+  .art-day.allread .d-date{color:var(--ink2)}
+  .art-day.allread .d-week,.art-day.allread .cnt{color:#97A3B0}
+  .art-day.allread .d-arrow{color:var(--ink2)}
+  .sub-head.read{color:var(--ink2)}
+  .sub-head.read .cnt{color:#97A3B0}
+  .sub-head.read .win-chip{opacity:.75}
+  .card h2.read{color:var(--ink2)}
+  .card h2.read .chip{opacity:.8}
   .tools .btn.sm{min-height:34px}
   @media (max-width:767px){ .topbar-in{padding:10px 14px} }
 

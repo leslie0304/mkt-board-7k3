@@ -207,9 +207,54 @@
   function isRead(k){ return !!k && readSet().has(k); }
   function markRead(k){ if(!k||readSet().has(k)) return; readSet().add(k); try{ localStorage.setItem(READ_KEY, JSON.stringify(Array.from(readSet()))); }catch(e){} updateReadStat(); }
   function readKeyOf(r){ var p=(r['IMA路径']||'').trim(); if(p && p!=='—') return 'P:'+p; return 'T:'+(d10(r['日期'])||'—')+'|'+(r['标题']||''); }
-  function clearRead(){ _readSet=new Set(); try{ localStorage.removeItem(READ_KEY); }catch(e){} document.querySelectorAll('details.art.read').forEach(function(d){ d.classList.remove('read'); var f=d.querySelector('.read-flag'); if(f) f.remove(); }); updateReadStat(); }
+  function clearRead(){ _readSet=new Set(); try{ localStorage.removeItem(READ_KEY); }catch(e){} document.querySelectorAll('details.art.read').forEach(function(d){ d.classList.remove('read'); var f=d.querySelector('.read-flag'); if(f) f.remove(); }); updateReadStat(); refreshReadCascade(); }
   function updateReadStat(){ var n=readSet().size; var el=document.getElementById('readN'); if(el) el.textContent=n; }
-  function startReadTimer(el){ var k=el.getAttribute('data-key'); if(!k||isRead(k)) return; cancelReadTimer(el); _readTimers[k]=setTimeout(function(){ markRead(k); el.classList.add('read'); var top=el.querySelector('.a-top'); if(top && !el.querySelector('.read-flag')){ var s=document.createElement('span'); s.className='read-flag'; s.textContent='已读'; top.appendChild(s); } }, 3000); }
+  function startReadTimer(el){ var k=el.getAttribute('data-key'); if(!k||isRead(k)) return; cancelReadTimer(el); _readTimers[k]=setTimeout(function(){ markRead(k); el.classList.add('read'); var top=el.querySelector('.a-top'); if(top && !el.querySelector('.read-flag')){ var s=document.createElement('span'); s.className='read-flag'; s.textContent='已读'; top.appendChild(s); } refreshReadCascade(el); }, 3000); }
+  /* ═══ 已读级联（2026-10-21圣意）：条目已读向上传导到「日期组头」与「栏目头」 ═══ */
+  function allReadIn(box){ var a=box.querySelectorAll('details.art'); if(!a.length) return false; for(var i=0;i<a.length;i++){ if(!a[i].classList.contains('read')) return false; } return true; }
+  function flagInto(head,on,label){
+    if(!head) return;
+    var f=head.querySelector('.read-flag');
+    if(on && !f){ var s=document.createElement('span'); s.className='read-flag'; s.textContent=label||'已读'; head.appendChild(s); }
+    else if(!on && f){ f.remove(); }
+  }
+  function setGroupRead(g,on){
+    if(!g) return;
+    g.classList.toggle('allread', !!on);
+    var head=g.querySelector('.day-head'); if(!head) return;
+    var f=head.querySelector('.read-flag');
+    if(on && !f){
+      var s=document.createElement('span'); s.className='read-flag'; s.textContent='已读';
+      var arrow=head.querySelector('.d-arrow');
+      if(arrow) head.insertBefore(s,arrow); else head.appendChild(s);
+    } else if(!on && f){ f.remove(); }
+  }
+  function setHeadRead(head,on){
+    if(!head) return;
+    head.classList.toggle('read', !!on);
+    flagInto(head,on,'已读');
+  }
+  /* target=刚变已读的条目；不传则全量重算（首渲染/清除已读时用） */
+  function refreshReadCascade(target){
+    var g = (target && target.closest) ? target.closest('.art-day') : null;
+    if(g) setGroupRead(g, allReadIn(g));
+    var scopes;
+    if(target){
+      var one=(target.closest && (target.closest('[data-sub]') || target.closest('.card')));
+      scopes = one ? [one] : [];
+    } else {
+      scopes = Array.prototype.slice.call(document.querySelectorAll('[data-sub]'));
+      ['mod-p21','mod-p22','mod-p23'].forEach(function(id){ var e=document.getElementById(id); if(e) scopes.push(e); });
+      /* 全量模式下日期组也逐一重算（清除已读后需撤回组头已读态） */
+      Array.prototype.slice.call(document.querySelectorAll('.art-day')).forEach(function(g2){ setGroupRead(g2, allReadIn(g2)); });
+    }
+    scopes.forEach(function(sc){
+      if(!sc) return;
+      var head = sc.classList.contains('card') ? sc.querySelector('h2') : sc.querySelector('.sub-head');
+      if(!head) return;
+      setHeadRead(head, allReadIn(sc));
+    });
+  }
   function cancelReadTimer(el){ var k=el.getAttribute('data-key'); if(k&&_readTimers[k]){ clearTimeout(_readTimers[k]); delete _readTimers[k]; } }
   function bindReadMarkers(){ document.querySelectorAll('details.art').forEach(function(d){ d.addEventListener('toggle', function(){ if(this.open){ startReadTimer(this); } else { cancelReadTimer(this); } }); }); }
 
@@ -442,7 +487,7 @@
     el.innerHTML='信息来源：窗口内 <b>'+total+'</b> 篇 ｜ 营销匹配：前瞻 / 企业 / 机构 3 期 ｜ 正在营销：<b>'+liveRows.length+'</b> 家（授信 '+st['授信']+' · 拜访 '+st['拜访']+' · 活动 '+st['活动']+' · 潜在机会 '+st['潜在机会']+' · 其他待办 '+st['其他待办']+'）｜ 本周重点 <b>'+weekN+'</b> 家 ｜ 下周拜访 <b>'+planN+'</b> 家';
   }
 
-  function renderAll(){ renderSnap(); renderSnapBadge(); renderLive(); updatePlanTag(); renderPlan(); renderFocus(); bindReadMarkers(); updateReadStat(); }
+  function renderAll(){ renderSnap(); renderSnapBadge(); renderLive(); updatePlanTag(); renderPlan(); renderFocus(); bindReadMarkers(); updateReadStat(); refreshReadCascade(); }
 
   /* ═══ IMA 唤起检测守卫（2026-10-19，原理同官方 we 函数）═══
      点击 imacopilot:// 深链后 2 秒：若页面仍持有焦点 → ima 未被唤起
