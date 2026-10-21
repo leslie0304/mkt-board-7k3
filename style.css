@@ -191,6 +191,15 @@
   .art-day[open] .day-head{border-radius:11px 11px 0 0}
   .art-day .day-body{padding:6px 10px 8px}
   .art-day .day-body .art{margin-bottom:8px}
+  /* ── 已读标记（2026-10-21）：展开停留≥3秒自动标记，颜色/阴影变化 ── */
+  .art.read{opacity:.6;background:#FAFBFC;border-left:3px solid var(--ok);box-shadow:none}
+  .art.read .a-top{background:linear-gradient(90deg,#F4F8F5,#F7FAF8)}
+  .art.read .a-title{color:var(--ink2)}
+  .art.read .a-sum{color:var(--ink2)}
+  .read-flag{font-size:.64rem;font-weight:700;color:#fff;background:var(--ok);border-radius:999px;
+    padding:1px 7px;margin-left:6px;flex:none;vertical-align:middle}
+  .read-stat{font-size:.72rem;color:var(--ink2);font-weight:600}
+  .read-stat b{color:var(--ok)}
   .tools .btn.sm{min-height:34px}
   @media (max-width:767px){ .topbar-in{padding:10px 14px} }
 

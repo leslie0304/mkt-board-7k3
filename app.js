@@ -193,13 +193,26 @@
     } else {
       main='<a class="a-link" data-ima="1" href="'+imaUrl(r)+'" title="'+(hasMid?'在 ima 客户端直达该条目':'在 ima 客户端打开对应知识库')+'（若 ima 已开着，请先退出再点）">'+(hasMid?'IMA 直达 ↗':'打开 ima ↗')+'</a>';
     }
-    return '<details class="art">'+
+    var rk=readKeyOf(r), rcls=isRead(rk)?' read':'', rflag=rcls?'<span class="read-flag">已读</span>':'';
+    return '<details class="art'+rcls+'" data-key="'+esc(rk)+'">'+
       '<summary class="a-top"><span class="a-date">'+esc(d10(r['日期'])||'—')+'</span>'+
-      '<span class="a-title">'+esc(r['标题'])+'</span>'+tagChips(r['命中标签'])+
+      '<span class="a-title">'+esc(r['标题'])+'</span>'+tagChips(r['命中标签'])+rflag+
       '<span class="a-arrow">展开 ▾</span></summary>'+
       '<div class="a-body"><div class="a-sum">'+esc(r['摘要']||'（无摘要）')+'</div>'+
       '<div class="a-path">IMA 路径：'+esc(r['IMA路径']||'—')+' ｜ '+main+copyBtn+'</div></div></details>';
   }
+  /* ═══ 已读标记（2026-10-21）：展开条目停留≥3秒自动标记已读，呈现颜色/阴影变化 ═══ */
+  var READ_KEY='mkt_read_v1', _readSet=null, _readTimers={};
+  function readSet(){ if(_readSet) return _readSet; var a=[]; try{ a=JSON.parse(localStorage.getItem(READ_KEY)||'[]'); }catch(e){ a=[]; } _readSet=new Set(a); return _readSet; }
+  function isRead(k){ return !!k && readSet().has(k); }
+  function markRead(k){ if(!k||readSet().has(k)) return; readSet().add(k); try{ localStorage.setItem(READ_KEY, JSON.stringify(Array.from(readSet()))); }catch(e){} updateReadStat(); }
+  function readKeyOf(r){ var p=(r['IMA路径']||'').trim(); if(p && p!=='—') return 'P:'+p; return 'T:'+(d10(r['日期'])||'—')+'|'+(r['标题']||''); }
+  function clearRead(){ _readSet=new Set(); try{ localStorage.removeItem(READ_KEY); }catch(e){} document.querySelectorAll('details.art.read').forEach(function(d){ d.classList.remove('read'); var f=d.querySelector('.read-flag'); if(f) f.remove(); }); updateReadStat(); }
+  function updateReadStat(){ var n=readSet().size; var el=document.getElementById('readN'); if(el) el.textContent=n; }
+  function startReadTimer(el){ var k=el.getAttribute('data-key'); if(!k||isRead(k)) return; cancelReadTimer(el); _readTimers[k]=setTimeout(function(){ markRead(k); el.classList.add('read'); var top=el.querySelector('.a-top'); if(top && !el.querySelector('.read-flag')){ var s=document.createElement('span'); s.className='read-flag'; s.textContent='已读'; top.appendChild(s); } }, 3000); }
+  function cancelReadTimer(el){ var k=el.getAttribute('data-key'); if(k&&_readTimers[k]){ clearTimeout(_readTimers[k]); delete _readTimers[k]; } }
+  function bindReadMarkers(){ document.querySelectorAll('details.art').forEach(function(d){ d.addEventListener('toggle', function(){ if(this.open){ startReadTimer(this); } else { cancelReadTimer(this); } }); }); }
+
   var WEEK=['日','一','二','三','四','五','六'];
   /* 按日期分组呈现：同天归一组（组头=日期+星期+篇数），最新日期组默认展开，过往收起；
      单条（第二部三卡）不套组，保持一层折叠直达。
@@ -429,7 +442,7 @@
     el.innerHTML='信息来源：窗口内 <b>'+total+'</b> 篇 ｜ 营销匹配：前瞻 / 企业 / 机构 3 期 ｜ 正在营销：<b>'+liveRows.length+'</b> 家（授信 '+st['授信']+' · 拜访 '+st['拜访']+' · 活动 '+st['活动']+' · 潜在机会 '+st['潜在机会']+' · 其他待办 '+st['其他待办']+'）｜ 本周重点 <b>'+weekN+'</b> 家 ｜ 下周拜访 <b>'+planN+'</b> 家';
   }
 
-  function renderAll(){ renderSnap(); renderSnapBadge(); renderLive(); updatePlanTag(); renderPlan(); renderFocus(); }
+  function renderAll(){ renderSnap(); renderSnapBadge(); renderLive(); updatePlanTag(); renderPlan(); renderFocus(); bindReadMarkers(); updateReadStat(); }
 
   /* ═══ IMA 唤起检测守卫（2026-10-19，原理同官方 we 函数）═══
      点击 imacopilot:// 深链后 2 秒：若页面仍持有焦点 → ima 未被唤起
@@ -569,6 +582,11 @@
       snapRows=cloneRows(SEED_SNAP); liveRows=cloneRows(SEED_LIVE);
       snapRows.sort(byDateDesc); liveRows.sort(byLiveDesc);
       saveSnap(); saveLive(); renderAll();
+    });
+    var bcr=document.getElementById('btnClearRead');
+    if(bcr) bcr.addEventListener('click',function(){
+      if(!confirm('清除本机所有「已读」标记？此操作仅去掉颜色标识，不会影响作战板任何数据。')) return;
+      clearRead();
     });
   }
 
