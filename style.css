@@ -99,12 +99,6 @@
   /* ── 桌面版增量 ── */
     .a-link{color:var(--pri);font-weight:700;text-decoration:none;white-space:nowrap}
   .a-link:hover{text-decoration:underline}
-  /* 手机端 IMA 轻提示条（2026-10-26）：不跳页、不产生历史记录，4.6 秒自动隐去 */
-  .ima-tip{position:fixed;left:12px;right:12px;bottom:calc(18px + env(safe-area-inset-bottom));
-    z-index:9999;background:rgba(24,32,40,.94);color:#fff;font-size:.82rem;line-height:1.65;font-weight:600;
-    padding:12px 15px;border-radius:12px;box-shadow:0 10px 26px rgba(0,0,0,.28);
-    opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .22s ease,transform .22s ease}
-  .ima-tip.show{opacity:1;transform:none}
   .ima-toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:9999;
     display:flex;flex-direction:column;gap:4px;max-width:min(560px,92vw);
     padding:12px 18px;border-radius:12px;border:1px solid #F0C36D;

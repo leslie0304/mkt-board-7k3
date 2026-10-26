@@ -105,51 +105,32 @@
     var enc = encodeURIComponent(inner);
     return 'imacopilot://open?url='+enc+'&opentab='+enc+'&launchChannel=10000162&target=viewer';
   }
-  /* ═══ IMA 移动端：手机端无公开 scheme，历史方案见下方 2026-10-26 终版注释 ═══ */
+  /* ═══ IMA 移动端（2026-10-26 终版·第四次）：实测 + 官方佐证后的正确路径 ═══
+     关键取证：① ima.qq.com 对「未登录+手机 UA」才 302 → /download（curl 实测）；
+              官方明确「网页端手机浏览器也能打开，扫码登录即进工作台」→ 已登录手机浏览器可进网页版。
+     ② 条目级直达链接形态已公开：`ima.qq.com/wiki/?shareId=<知识库分享ID>&mediaId=<条目ID>&action=openDetailDrawer`
+        （搜索结果实证，mediaId 后缀含库 ID 即信息库）→ 该 shareId 须由陛下在 IMA「分享知识库」生成一次。
+     ③ IMA 移动端无裸 scheme 唤起，故手机一律走 http 链接（新标签打开，避免污染返回历史）。
+     处置：有分享链接 → wiki 直达具体条目/库；无 → ima.qq.com 网页版（已登录即进，可看库/搜文）。 */
   function isMobile(){
     return /Android|iPhone|iPod|iPad|Mobile|Windows Phone|HarmonyOS/i.test(navigator.userAgent||'');
   }
   function imaMobileHref(r){
     var kb=(r&&r.imaKb)||KB['信息库'];
     var sid=KB_SHARE[kb]||KB_SHARE['信息库'];
-    if(sid) return 'https://ima.qq.com/wiki/?shareId='+encodeURIComponent(sid);
-    return 'imacopilot://open';  /* 仅作占位；手机端点击由 bindImaMobileTap 拦截，不实际导航 */
-  }
-  /* ═══ IMA 移动端（2026-10-26 第三次修订，终版）═══
-     实测事实：① IMA 移动端未注册任何公开 URL scheme（bare imacopilot:// 亦无响应）；
-              ② ima.qq.com 对手机 UA 一律 302 → /download（curl 实测），故「网页版兜底」在手机上
-                 只能落到下载页，且新增一条历史记录 → 陛下连按两次返回才能回作战板。
-     处置：手机端点击**不跳页**（preventDefault，零历史污染），仅静默尝试唤起一次 App，
-           并弹轻提示条告知在 IMA App 内的查找路径。 */
-  var IMA_TIP_ID='imaTipBar';
-  function imaTipBar(msg){
-    var el=document.getElementById(IMA_TIP_ID);
-    if(!el){ el=document.createElement('div'); el.id=IMA_TIP_ID; el.className='ima-tip'; document.body.appendChild(el); }
-    el.textContent=msg;
-    el.classList.add('show');
-    clearTimeout(el._t); el._t=setTimeout(function(){ el.classList.remove('show'); }, 4600);
-  }
-  function bindImaMobileTap(){
-    if(!isMobile()) return;
-    document.addEventListener('click', function(e){
-      var a=(e.target&&e.target.closest)?e.target.closest('a[data-mobile], a.ima-open'):null;
-      if(!a) return;
-      e.preventDefault();                       /* 不跳转、不留历史，返回键直达作战板 */
-      var p=a.getAttribute('data-path')||'';
-      var fr=document.createElement('iframe');  /* 静默试唤起（无 handler 时无任何副作用） */
-      fr.style.cssText='display:none;width:0;height:0;border:0';
-      fr.src='imacopilot://open';
-      document.body.appendChild(fr);
-      setTimeout(function(){ try{ fr.parentNode.removeChild(fr); }catch(e2){} }, 1200);
-      imaTipBar('手机端 IMA 不支持直接跳转，请在 IMA App 里查找：'+(p?('「'+p+'」'):'信息库 → 对应文件夹'));
-    }, true);
+    if(sid){
+      if(r && r.imaMid) return 'https://ima.qq.com/wiki/?shareId='+encodeURIComponent(sid)+'&mediaId='+encodeURIComponent(r.imaMid)+'&action=openDetailDrawer';
+      return 'https://ima.qq.com/wiki/?shareId='+encodeURIComponent(sid);
+    }
+    return 'https://ima.qq.com';  /* 已登录手机浏览器即进网页版；未登录先登录 */
   }
   function fixImaOpenLinks(){
     if(!isMobile()) return;
     document.querySelectorAll('a.ima-open').forEach(function(a){
       a.setAttribute('href', imaMobileHref({}));
-      a.setAttribute('data-path','信息库');
-      a.setAttribute('title','手机端点击查看 IMA App 内查找路径（不跳页）');
+      a.setAttribute('target','_blank');
+      a.setAttribute('rel','noopener');
+      a.setAttribute('title','手机端在新标签打开 IMA 网页版（已登录即进）');
     });
   }
   /* ═══ 窗口规则（渲染函数内，禁入 query 回调——DSDK015） ═══ */
@@ -186,17 +167,17 @@
     }).join('');
   }
   function artItem(r){
-    /* ★陛下旨意（2026-10-19）：一切经 ima 跳转直达条目。
+    /* ★陛下旨意（2026-10-19 立，2026-10-26 终版修订）：一切经 ima 跳转直达条目。
        桌面：imacopilot:// 深链（有 imaMid 直达条目，无则落知识库层）。
-       手机：裸 imacopilot://open 唤起 App（IMA bundle 实证有此 scheme，复刻「之前能跳」），
-             未唤起自动转网页版 ima.qq.com + 复制路径按钮兜底。 */
+       手机：IMA 无裸 scheme 唤起 → 走 http 链接（新标签打开，规避返回键失灵）：
+             ① 已配置库分享链接(KB_SHARE)且有 imaMid → wiki 直达该条目；
+             ② 已配置库分享链接 → wiki 直达库；③ 否则 → ima.qq.com 网页版（已登录即进）。 */
     var hasMid=!!r.imaMid, main;
     if(isMobile()){
       /* ★2026-10-26 圣意：手机端去掉「复制 IMA 路径」按钮；
-         点击不再跳页（ima.qq.com 对手机必 302 /download，且污染历史致返回键失灵），
-         改为不打断浏览的提示条（见 bindImaMobileTap）。 */
-      main='<a class="a-link" data-ima="1" data-mobile="1" data-path="'+esc(r['IMA路径']||'信息库')+'" href="'+imaMobileHref(r)+'" '
-          +'title="手机端点击查看在 IMA App 内的查找路径">打开 IMA ↗</a>';
+         点击在新标签打开 IMA 网页版（已登录即进；有库分享链接则直达该条目），用新标签避免返回键失灵。 */
+      main='<a class="a-link" data-ima="1" data-mobile="1" target="_blank" rel="noopener" href="'+imaMobileHref(r)+'" '
+          +'title="手机端在新标签打开 IMA 网页版（已登录即进；配置库分享链接后直达该文章）">打开 IMA ↗</a>';
     } else {
       main='<a class="a-link" data-ima="1" href="'+imaUrl(r)+'" title="'+(hasMid?'在 ima 客户端直达该条目':'在 ima 客户端打开对应知识库')+'（若 ima 已开着，请先退出再点）">'+(hasMid?'IMA 直达 ↗':'打开 ima ↗')+'</a>';
     }
@@ -758,7 +739,6 @@
     bindDataTools();
     imaLaunchGuard();
     fixImaOpenLinks();
-    bindImaMobileTap();
     renderAll();
 
     if(!LS_OK){
