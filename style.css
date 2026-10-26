@@ -208,7 +208,12 @@
   .card h2.read{color:var(--ink2)}
   .card h2.read .chip{opacity:.8}
   .tools .btn.sm{min-height:34px}
-  @media (max-width:767px){ .topbar-in{padding:10px 14px} }
+  /* 手机端专属元素（桌面隐藏）：IMA 登录入口 */
+  .only-mobile{display:none}
+  @media (max-width:767px){
+    .topbar-in{padding:10px 14px}
+    .only-mobile{display:inline-flex}
+  }
 
 
   /* ═══ 手机查看版（只读）═══ */

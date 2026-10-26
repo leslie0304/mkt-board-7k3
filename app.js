@@ -140,12 +140,12 @@
      官方 wikis 在「未登录」时走 initForNoLogin()（roleType=Visitor），
      getSimpleMedia 取不到条目 → autoOpenMedia 分支直接 return，
      表现就是「工作台能进、条目不自动打开」。
-     对策：链接先指向官方扫码登录页（universal-login-qr-only），并带 redirectUrl 回条目 URL，
-     登录成功后自动续跳该条目。官方登录页由 app.js 实证：tL = ste()+"/login/#/universal-login-qr-only/"，
-     微信授权回跳走 soe({redirectUrl, appId, scope})。 */
-  function imaLoginHref(r){
-    var target = r && r.imaMid ? imaMobileHref(r) : imaMobileHref(r);
-    return 'https://ima.qq.com/login/#/universal-login-qr-only/?redirectUrl='+encodeURIComponent(target);
+     ★官方登录页参数实证（app.js 1807576）：tL({targetOrigin, retrySession, flowSource})，
+     登录成功后回到 targetOrigin（即原页面）→ 故「先登录一次、之后条目链接即直达」即可闭环。
+     本函数给的是**独立的登录入口**（不带无效的 redirectUrl——官方 redirectUrl 是微信 OAuth 专用，
+     非登录页参数）。 */
+  function imaLoginHref(){
+    return 'https://ima.qq.com/login/#/universal-login-qr-only/';
   }
   function fixImaOpenLinks(){
     if(!isMobile()) return;
@@ -208,15 +208,16 @@
            官方登录页路由实证：https://ima.qq.com/login/#/universal-login-qr-only/ */
       var ou=r['原文URL']||'';
       var imaHref=imaMobileHref(r);
-      var loginHref=imaLoginHref(r);
       if(ou){
         main='<a class="a-link" data-orig="1" target="_blank" rel="noopener" href="'+esc(ou)+'" '
             +'title="新标签打开微信原文（免登录，直达该篇原文；返回作战板不受影响）">读原文 ↗</a> '
-            +'<a class="a-link" data-ima="1" data-mobile="1" target="_blank" rel="noopener" href="'+esc(loginHref)+'" '
-            +'title="新标签打开 IMA：未登录会先出扫码登录页，登录后自动跳到该条目（已登录则直接进条目）">开 IMA ↗</a>';
+            +'<a class="a-link" data-ima="1" data-mobile="1" target="_blank" rel="noopener" href="'+esc(imaHref)+'" '
+            +'title="'+(hasMid?'新标签打开 IMA 并自动打开该条目（★需先在手机浏览器登录一次 IMA，扫码即可；未登录只能看到库列表）'
+                             :'新标签打开 IMA 的该知识库（★需先登录一次 IMA）')+'">开 IMA ↗</a>';
       } else {
-        main='<a class="a-link" data-ima="1" data-mobile="1" target="_blank" rel="noopener" href="'+esc(loginHref)+'" '
-            +'title="新标签打开 IMA：未登录会先出扫码登录页，登录后自动跳到该条目（已登录则直接进条目）">开 IMA ↗</a>';
+        main='<a class="a-link" data-ima="1" data-mobile="1" target="_blank" rel="noopener" href="'+esc(imaHref)+'" '
+            +'title="'+(hasMid?'新标签打开 IMA 并自动打开该条目（★需先在手机浏览器登录一次 IMA，扫码即可；未登录只能看到库列表）'
+                             :'新标签打开 IMA 的该知识库（★需先登录一次 IMA）')+'">开 IMA ↗</a>';
       }
     } else {
       main='<a class="a-link" data-ima="1" href="'+imaUrl(r)+'" title="'+(hasMid?'在 ima 客户端直达该条目':'在 ima 客户端打开对应知识库')+'（若 ima 已开着，请先退出再点）">'+(hasMid?'IMA 直达 ↗':'打开 ima ↗')+'</a>';
