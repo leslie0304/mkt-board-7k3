@@ -610,6 +610,7 @@
      ③ 手动行程存 LS_PLAN（独立 localStorage 键），随 JSON 导出/导入一起走。 */
   var LS_PLAN = 'wb_mbb_desk_plan_v1';
   var planRowsManual=[];   /* 手动行程：[{id,日期,时刻,机构,事项,备注}] */
+  var planEditId=null;     /* ★第十次修订：正在修改的手动行程 id（null = 新增模式） */
 
   function loadPlanManual(){
     var raw=lsGet(LS_PLAN);
@@ -618,15 +619,21 @@
   }
   function savePlanManual(){ lsSet(LS_PLAN, JSON.stringify(planRowsManual)); }
 
-  /* 本周 + 下周 双周窗口 */
+  /* 本周 + 下周 双周窗口
+     ★第十次修订（2026-10-26）：周头按「法定工作周」显示——周一~周五，
+       形如 2026.10.26-2026.10.30；数据跨度仍覆盖周一~周日（周末若有行程照样显示）。 */
   function planWindows(){
     var w=weekRange();                 /* w = 下周（周一~周日） */
     var cur=mondayOf(todayStr());       /* 本周周一 */
     return [
-      {key:'cur', title:'本周', s:cur, e:addDays(cur,6)},
-      {key:'next',title:'下周', s:w.s,   e:w.e}
+      {key:'cur', title:'本周', s:cur, e:addDays(cur,6), ws:cur, we:addDays(cur,4)},
+      {key:'next',title:'下周', s:w.s,   e:w.e,       ws:w.s, we:addDays(w.s,4)}
     ];
   }
+  /* 日期显示：2026-10-26 → 2026.10.26 */
+  function fmtDot(dstr){ return dstr?String(dstr).replace(/-/g,'.'):''; }
+  /* 法定工作周区间文本：2026.10.26-2026.10.30 */
+  function workRangeText(win){ return fmtDot(win.ws)+'-'+fmtDot(win.we); }
   /* 窗口内自动路：填了拜访时间且落在窗口内的营销记录 */
   function planRows(win){
     var w=win||planWindows()[1];
@@ -661,14 +668,17 @@
       if(v<lo) past++; else if(v>hi) later++; });
     return {past:past,later:later};
   }
+  /* 自动路行程行：右侧加「改期」按钮（跳到「正在营销」改拜访时间） */
   function planRecLine(r){
     var tm=visitTime(r);
+    var ix=liveRows.indexOf(r);
     return '<div class="plan-rec"><span class="r-name">'+esc(r['企业机构'])+'</span>'+
       (tm?'<span class="r-time" title="拜访时刻">'+esc(tm)+'</span>':'')+
       groupChip(r)+prioChip(r)+tagChip(r)+
+      '<span class="plan-acts"><button class="plan-editbtn" type="button" data-edit-live="'+ix+'" title="到「正在营销」修改本条拜访时间">改期</button></span>'+
       '<span class="r-next">下一步：'+esc(r['下一步动作']||'—')+'</span></div>';
   }
-  /* 手动行程行（带删除按钮） */
+  /* 手动行程行（右侧「修改」+「删除」） */
   function planManualLine(p){
     var tm=p['时刻']||'';
     return '<div class="plan-rec manual">'+
@@ -677,53 +687,89 @@
       (tm?'<span class="r-time" title="行程时刻">'+esc(tm)+'</span>':'')+
       (p['事项']&&p['机构']?'<span class="r-next" style="width:auto">'+esc(p['事项'])+'</span>':'')+
       (p['备注']?'<span class="r-next">备注：'+esc(p['备注'])+'</span>':'')+
-      '<button class="plan-del" type="button" data-del-plan="'+esc(p['id'])+'">删除</button>'+
+      '<span class="plan-acts">'+
+        '<button class="plan-editbtn" type="button" data-edit-plan="'+esc(p['id'])+'" title="修改本条行程（日期/时刻/机构/事项/备注）">修改</button>'+
+        '<button class="plan-del" type="button" data-del-plan="'+esc(p['id'])+'">删除</button>'+
+      '</span>'+
       '</div>';
   }
-  /* 单周渲染 */
+  /* 上午/下午分栏（时刻 <12:00 → 上午；≥12:00 → 下午；未定时刻归上午栏并标注） */
+  function halfOf(t){ return (!t || t<'12:00') ? 'am' : 'pm'; }
+  function planHalfBox(cls,label,arr){
+    return '<div class="plan-half '+cls+'"><div class="hh">'+label+'<span class="hc">'+arr.length+' 项</span></div>'+
+      (arr.length? arr.map(function(x){return x.html;}).join('') : '<div class="plan-empty-half">（空）</div>')+
+      '</div>';
+  }
+  /* 单周渲染：周头按法定工作周（周一~周五）显示日期区间；每日内部再分上午/下午 */
   function planWeekHtml(win){
     var auto=planRows(win), man=planManualRows(win);
     var total=auto.length+man.length;
     var h='<div class="plan-week'+(win.key==='cur'?' cur':'')+'">'+
       '<div class="plan-week-head"><span class="ww-title">'+esc(win.title)+'</span>'+
-      '<span class="ww-range">'+win.s.slice(5)+' ~ '+win.e.slice(5)+'</span>'+
+      '<span class="ww-range" title="法定工作周（周一至周五）">'+esc(workRangeText(win))+'</span>'+
       '<span class="ww-cnt">'+total+' 项</span></div>';
     if(!total){
       h+='<div style="padding:10px 12px;font-size:.78rem;color:var(--mute)">'+esc(win.title)+'暂无行程。可在下方「手动添加行程」直接新增，或在「正在营销」中填写「拜访时间」自动汇入。</div>';
     }else{
       for(var i=0;i<7;i++){
         var day=addDays(win.s,i);
-        var list=auto.filter(function(r){ return visitOf(r)===day; });
-        var mlist=man.filter(function(p){ return d10(p['日期'])===day; });
-        if(!list.length&&!mlist.length) continue;
-        var dd=day.slice(5), n=list.length+mlist.length;
+        var items=[];
+        auto.forEach(function(r){ if(visitOf(r)===day) items.push({t:visitTime(r),html:planRecLine(r)}); });
+        man.forEach(function(p){ if(d10(p['日期'])===day) items.push({t:p['时刻']||'',html:planManualLine(p)}); });
+        if(!items.length) continue;
+        /* 同日按时刻升序（未定时刻排最后） */
+        items.sort(function(a,b){ var x=a.t||'99:99', y=b.t||'99:99'; return x<y?-1:(x>y?1:0); });
+        var am=items.filter(function(x){return halfOf(x.t)==='am';});
+        var pm=items.filter(function(x){return halfOf(x.t)==='pm';});
+        var dd=day.slice(5), n=items.length;
         var todayMark=(day===todayStr())?' <span class="chip tag-w">今天</span>':'';
         h+='<div class="plan-day"><div class="plan-day-head"><span class="dd">'+dd+'</span>'+
           '<span class="wd">'+wdOf(day)+'</span>'+todayMark+
           '<span class="cnt">'+n+' 项</span></div>'+
-          '<div class="plan-day-body">'+list.map(planRecLine).join('')+mlist.map(planManualLine).join('')+'</div></div>';
+          '<div class="plan-day-body"><div class="plan-ampm">'+
+            planHalfBox('am','上午',am)+planHalfBox('pm','下午',pm)+
+          '</div></div></div>';
       }
     }
     h+='</div>';
     return h;
   }
-  /* 手动添加入口（表单） */
+  /* 手动添加入口（表单）——★第十次修订：兼作「修改」入口（planEditId 非空时回填原值） */
   function planAddHtml(){
     var today=todayStr();
-    return '<div class="plan-add">'+
-      '<div class="pa-title">＋ 手动添加行程（不绑定企业登记，随时可改可删）</div>'+
+    var ed=null;
+    if(planEditId){
+      for(var i=0;i<planRowsManual.length;i++){
+        if(planRowsManual[i]['id']===planEditId){ ed=planRowsManual[i]; break; }
+      }
+    }
+    var title=ed? '✎ 修改行程条目（保存后覆盖原条目）' : '＋ 手动添加行程（不绑定企业登记，随时可改可删）';
+    var btnText=ed? '保存修改' : '添加到行程表';
+    return '<div class="plan-add" id="planAddBox">'+
+      '<div class="pa-title">'+title+'</div>'+
       '<div class="plan-add-grid">'+
-        '<input type="date" id="paDate" value="'+esc(today)+'" title="行程日期" style="flex:0 0 150px">'+
-        '<input type="time" id="paTime" value="" title="行程时刻（可留空）" style="flex:0 0 120px">'+
-        '<input type="text" id="paOrg" placeholder="机构/客户名称" maxlength="40">'+
-        '<input type="text" id="paItem" placeholder="事项，如 首次拜访 / 授信面谈" maxlength="40">'+
-        '<input type="text" id="paNote" placeholder="备注（可留空）" maxlength="60">'+
+        '<input type="date" id="paDate" value="'+esc(ed?d10(ed['日期']):today)+'" title="行程日期" style="flex:0 0 150px">'+
+        '<input type="time" id="paTime" value="'+esc(ed?(ed['时刻']||''):'')+'" title="行程时刻（可留空）" style="flex:0 0 120px">'+
+        '<input type="text" id="paOrg" value="'+esc(ed?(ed['机构']||''):'')+'" placeholder="机构/客户名称" maxlength="40">'+
+        '<input type="text" id="paItem" value="'+esc(ed?(ed['事项']||''):'')+'" placeholder="事项，如 首次拜访 / 授信面谈" maxlength="40">'+
+        '<input type="text" id="paNote" value="'+esc(ed?(ed['备注']||''):'')+'" placeholder="备注（可留空）" maxlength="60">'+
       '</div>'+
       '<div class="plan-add-foot">'+
-        '<button class="btn pri" id="btnAddPlan" type="button">添加到行程表</button>'+
+        '<button class="btn pri" id="btnAddPlan" type="button">'+btnText+'</button>'+
+        (ed?'<button class="btn" id="btnCancelPlanEdit" type="button">取消修改</button>':'')+
         '<span class="plan-hint">保存后即时排入对应日期；本机保存，换电脑请用「导出/导入」迁移。</span>'+
       '</div></div>';
   }
+  /* ★第十次修订：行右侧「修改」按钮 → 回填表单进入编辑态 */
+  function startPlanEdit(id){
+    planEditId=id;
+    renderPlan();
+    var box=document.getElementById('planAddBox');
+    if(box&&box.scrollIntoView) box.scrollIntoView({behavior:'smooth',block:'center'});
+    var f=document.getElementById('paOrg');
+    if(f&&f.focus) f.focus({preventScroll:true});
+  }
+  function cancelPlanEdit(){ planEditId=null; renderPlan(); }
   function renderPlan(){
     var panel=document.getElementById('planPanel'); if(!panel) return;
     if(!planOpen){ panel.style.display='none'; return; }
@@ -732,7 +778,7 @@
     var total=0;
     wins.forEach(function(w){ total+=planRows(w).length+planManualRows(w).length; });
     var h='<div class="plan-head"><span class="pt">拜访行程表</span>'+
-      '<span class="pr">本周 '+wins[0].s+' ~ '+wins[0].e+'　｜　下周 '+wins[1].s+' ~ '+wins[1].e+'</span></div>';
+      '<span class="pr">本周 '+esc(workRangeText(wins[0]))+'　｜　下周 '+esc(workRangeText(wins[1]))+'（法定工作周）</span></div>';
     h+=wins.map(planWeekHtml).join('');
     h+=planAddHtml();
     h+='<div class="plan-sum">窗口外：已过期 '+out.past+' 项（可更新拜访时间顺延）· 更晚 '+out.later+' 项 · 手动行程 '+planRowsManual.length+' 条</div>';
@@ -753,13 +799,46 @@
         var note=((document.getElementById('paNote')||{}).value||'').trim();
         if(!date){ alert('请选择行程日期'); return; }
         if(!org&&!item){ alert('请填写机构名称或事项'); return; }
-        planRowsManual.push({
-          'id':'p'+(Date.now())+Math.floor(Math.random()*1000),
-          '日期':date, '时刻':time, '机构':org, '事项':item, '备注':note
-        });
+        if(planEditId){
+          /* ★修改模式：覆盖原条目，不新增 */
+          for(var i=0;i<planRowsManual.length;i++){
+            if(planRowsManual[i]['id']===planEditId){
+              planRowsManual[i]['日期']=date; planRowsManual[i]['时刻']=time;
+              planRowsManual[i]['机构']=org; planRowsManual[i]['事项']=item;
+              planRowsManual[i]['备注']=note;
+              break;
+            }
+          }
+          planEditId=null;
+        }else{
+          planRowsManual.push({
+            'id':'p'+(Date.now())+Math.floor(Math.random()*1000),
+            '日期':date, '时刻':time, '机构':org, '事项':item, '备注':note
+          });
+        }
         savePlanManual(); renderPlan(); updatePlanTag();
       });
     }
+    var cancelBtn=document.getElementById('btnCancelPlanEdit');
+    if(cancelBtn && !cancelBtn.getAttribute('data-bound')){
+      cancelBtn.setAttribute('data-bound','1');
+      cancelBtn.addEventListener('click',cancelPlanEdit);
+    }
+    /* ★手动行「修改」→ 回填表单 */
+    panel.querySelectorAll('[data-edit-plan]').forEach(function(b){
+      if(b.getAttribute('data-bound')) return;
+      b.setAttribute('data-bound','1');
+      b.addEventListener('click',function(){ startPlanEdit(b.getAttribute('data-edit-plan')); });
+    });
+    /* ★自动行「改期」→ 跳到「正在营销」该条的编辑态（改拜访时间） */
+    panel.querySelectorAll('[data-edit-live]').forEach(function(b){
+      if(b.getAttribute('data-bound')) return;
+      b.setAttribute('data-bound','1');
+      b.addEventListener('click',function(){
+        var i=+b.getAttribute('data-edit-live');
+        if(typeof jumpEditLive==='function') jumpEditLive(i);
+      });
+    });
     panel.querySelectorAll('[data-del-plan]').forEach(function(b){
       if(b.getAttribute('data-bound')) return;
       b.setAttribute('data-bound','1');
@@ -767,6 +846,7 @@
         var id=b.getAttribute('data-del-plan');
         if(!confirm('确认删除该行程条目？')) return;
         planRowsManual=planRowsManual.filter(function(p){ return p['id']!==id; });
+        if(planEditId===id) planEditId=null;
         savePlanManual(); renderPlan(); updatePlanTag();
       });
     });
@@ -776,7 +856,7 @@
     wins.forEach(function(w){ total+=planRows(w).length+planManualRows(w).length; });
     var ct=document.getElementById('planCnt'); if(ct) ct.textContent='本周+下周共 '+total+' 项';
     var rg=document.getElementById('planRange');
-    if(rg) rg.textContent='本周 '+wins[0].s.slice(5)+' ~ 下周 '+wins[1].e.slice(5);
+    if(rg) rg.textContent='本周 '+workRangeText(wins[0])+' ~ 下周 '+workRangeText(wins[1]);
   }
   function togglePlan(){
     planOpen=!planOpen;
@@ -885,7 +965,7 @@
     wins.forEach(function(w){ planN+=planRows(w).length+planManualRows(w).length; });
     var L=['# 营销作战板 · 第三部登记备份','',
       '> 自动导出时间：'+new Date().toLocaleString('zh-CN')+' ｜ 正在营销共 '+liveRows.length+' 家',
-      '> 拜访行程（本周 '+wins[0].s.slice(5)+' ~ 下周 '+wins[1].e.slice(5)+'）：'+planN+' 项（含手动 '+planRowsManual.length+' 条）',
+      '> 拜访行程（本周 '+workRangeText(wins[0])+' ~ 下周 '+workRangeText(wins[1])+'）：'+planN+' 项（含手动 '+planRowsManual.length+' 条）',
       '> 重点节奏为**滚动档位**：随日期自动前进（上周填的「下周重点」本周即显示为「本周重点」）',''];
     GROUPS.forEach(function(g){
       var gr=liveRows.filter(function(r){ return groupOf(r)===g.key; });
@@ -901,7 +981,7 @@
     L.push('## 拜访行程表（本周+下周）','');
     var any=false;
     wins.forEach(function(w){
-      L.push('### '+w.title+'（'+w.s+' ~ '+w.e+'）','');
+      L.push('### '+w.title+'（'+workRangeText(w)+' 法定工作周）','');
       var rows=[];
       for(var i=0;i<7;i++){
         var day=addDays(w.s,i);
@@ -910,11 +990,12 @@
       }
       if(!rows.length){ L.push('暂无行程',''); return; }
       any=true;
-      L.push('| 日期 | 星期 | 来源 | 时刻 | 机构/事项 | 备注/下一步 |','| --- | --- | --- | --- | --- | --- |');
+      L.push('| 日期 | 星期 | 时段 | 来源 | 时刻 | 机构/事项 | 备注/下一步 |','| --- | --- | --- | --- | --- | --- | --- |');
       rows.forEach(function(x){
         var r=x[2], isM=(x[1]==='手动');
-        L.push('| '+mdCell(x[0])+' | '+mdCell(wdOf(x[0]))+' | '+x[1]+' | '+
-          mdCell(isM?(r['时刻']||''):visitTime(r))+' | '+
+        var tm=isM?(r['时刻']||''):visitTime(r);
+        L.push('| '+mdCell(x[0])+' | '+mdCell(wdOf(x[0]))+' | '+(halfOf(tm)==='am'?'上午':'下午')+' | '+x[1]+' | '+
+          mdCell(tm)+' | '+
           mdCell(isM?((r['机构']||'')+' '+(r['事项']||'')).trim():r['企业机构'])+' | '+
           mdCell(isM?(r['备注']||''):(r['下一步动作']||''))+' |');
       });
@@ -1059,6 +1140,22 @@
       var firstInput=liveCard.querySelector('[name="企业机构"]');
       if(firstInput&&firstInput.focus) firstInput.focus({preventScroll:true});
     }
+
+    /* ★第十次修订：行程表「改期」按钮 → 跳到「正在营销」该条的编辑态（改拜访时间） */
+    window.jumpEditLive=function(i){
+      if(typeof i!=='number' || i<0 || i>=liveRows.length) return;
+      /* 若该条被当前筛选隐藏，先复位筛选，保证跳过去能看见 */
+      if(liveFilter!=='all'||liveTag!=='all'){
+        liveFilter='all'; liveTag='all';
+        document.querySelectorAll('#liveFilter button').forEach(function(x){ x.classList.remove('on'); });
+        document.querySelectorAll('#liveFilterTag button').forEach(function(x){ x.classList.remove('on'); });
+      }
+      var first=document.querySelector('#liveFilter button[data-f="all"]');
+      if(first) first.classList.add('on');
+      var firstT=document.querySelector('#liveFilterTag button[data-f="all"]');
+      if(firstT) firstT.classList.add('on');
+      startEdit(i);
+    };
 
     document.getElementById('liveList').addEventListener('click',function(e){
       var ed=e.target.closest('button.r-edit');

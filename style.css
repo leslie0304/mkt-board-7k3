@@ -214,6 +214,31 @@
     border-radius:7px;cursor:pointer;min-height:26px}
   .plan-del:hover{background:#FDEBE8}
   .plan-hint{font-size:.72rem;color:var(--mute);margin-top:6px}
+  /* ═══ 第十次修订（2026-10-26 陛下圣意）：
+       ① 行右侧加「修改」按钮　② 周头按法定工作周显示日期区间（2026.10.26-2026.10.30）
+       ③ 每日内容按上午/下午分栏列示 ═══ */
+  .plan-week-head .ww-range{font-size:.75rem;color:#0B6E6E;font-weight:800;letter-spacing:.2px}
+  .plan-acts{margin-left:auto;display:flex;gap:6px;flex:none;align-items:center;align-self:flex-start}
+  .plan-rec.manual .r-next{width:auto;flex:1 1 auto;min-width:0}
+  .plan-editbtn{font-size:.7rem;padding:2px 8px;border:1px solid #C7D6E5;background:#F6FAFE;color:#1D4ED8;
+    border-radius:7px;cursor:pointer;min-height:26px}
+  .plan-editbtn:hover{background:#E7F0FB}
+  /* 上下午分栏 */
+  .plan-ampm{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:start}
+  .plan-half{border:1px solid #E3EBF2;border-radius:9px;padding:6px 8px 7px;background:#FBFDFE;min-width:0}
+  .plan-half .hh{display:flex;align-items:center;gap:6px;font-size:.72rem;font-weight:800;color:#0F766E;
+    margin-bottom:4px;padding-bottom:3px;border-bottom:1px dashed #E6EEF3}
+  .plan-half .hh .hc{margin-left:auto;font-size:.67rem;font-weight:700;color:#5B6B7B;background:#F1F5F9;
+    border:1px solid #E2E8F0;padding:0 7px;border-radius:999px}
+  .plan-half.pm{background:#FFFCF6;border-color:#EFE3C9}
+  .plan-half.pm .hh{color:#8A5A00;border-bottom-color:#F0E5CC}
+  .plan-half.pm .hh .hc{background:#FEF3C7;border-color:#FCD34D;color:#8A5A00}
+  .plan-half.none{background:#FAFBFC;border-color:#E8EDF2}
+  .plan-half.none .hh{color:#64748B;border-bottom-color:#EDF1F5}
+  .plan-half .plan-rec{padding:4px 2px}
+  .plan-half .plan-rec:last-child{border-bottom:none}
+  .plan-empty-half{font-size:.71rem;color:var(--mute);padding:3px 2px 1px}
+  @media (max-width:760px){ .plan-ampm{grid-template-columns:1fr} }
   /* ── 第一部条目按日期分组 ── */
   .art-day{border:1px solid var(--line);border-radius:11px;margin-bottom:8px;background:#fff}
   .art-day .day-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 12px;cursor:pointer;
@@ -272,6 +297,9 @@
      —— 手动行程存于手机本机 localStorage，无法回流桌面版，徒增困惑；
      手机端仅供**查看**本周+下周行程（随桌面版每日种子同步）。 */
   .plan-add,.plan-del{display:none !important}
+  /* ★第十次修订（2026-10-26）：手机只读版隐藏行右侧「修改」「改期」按钮
+     —— 手机不可编辑，改期须回电脑桌面版操作。 */
+  .plan-editbtn{display:none !important}
   /* 平滑锚点跳转 */
   html{scroll-behavior:smooth}
   /* ═══ 快速跳转胶囊（PC 不显示）═══ */
