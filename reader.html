@@ -107,7 +107,8 @@ body{
 <script>
 (function(){
   var qs = new URLSearchParams(location.search);
-  var u   = qs.get('u') || '';
+  var u   = qs.get('u') || '';   /* 远端直链（降级用，带时效签名，会过期） */
+  var f   = qs.get('f') || '';   /* ★同源本地文件（主路径，无 CORS、无过期） */
   var ttl = qs.get('t') || '';
   var wrap = document.querySelector('.wrap');
 
@@ -118,7 +119,7 @@ body{
     document.getElementById('box').innerHTML = html;
   }
 
-  if(!u){
+  if(!u && !f){
     /* 无参数 → 显示使用说明页（顶栏「免登录说明」按钮指向此处） */
     document.getElementById('ttl').textContent = '免登录阅读说明';
     document.getElementById('bd').textContent = '说明';
@@ -134,9 +135,9 @@ body{
       + '</ul>'
       + '<h3>为什么不用扫码登录</h3>'
       + '<p>此前方案需在手机浏览器扫码登录 IMA，但微信「扫一扫」明确禁止从相册识别二维码，'
-      + '且同屏无法对扫，实机不可行。故改为直取 IMA 内容直链：'
-      + '公众号文章走微信原文地址，Markdown 文档走对象存储地址（带跨域许可，可直接读取），'
-      + '全程无需任何账号态。</p>'
+      + '且同屏无法对扫，实机不可行。故改为<b>把原文本体随作战板一同发布</b>：'
+      + '公众号文章直开微信原页，Markdown 文档与 PDF/表格文件直接放在本站 <code>docs/</code> 目录，'
+      + '同源读取、无需任何账号态，也不会像对象存储临时链接那样过期。</p>'
       + '<h3>返回方式</h3>'
       + '<p>所有原文都在<b>新标签</b>打开，点左上角「‹」即回作战板；'
       + '若从浏览器菜单关掉标签，回到作战板标签页亦可继续。</p>'
@@ -285,7 +286,11 @@ body{
     window.scrollTo(0,0);
   }
 
-  fetch(u, {mode:'cors', credentials:'omit'})
+  /* ★取数：主路径 = 同源本地文件（?f=docs/xxx.md），无 CORS、无签名过期；
+     降级 = 远端直链（?u=），带时效签名，可能 403。 */
+  var src = f ? f : u;
+  var isLocal = !!f;
+  fetch(src, {mode:'cors', credentials:'omit'})
     .then(function(r){
       if(!r.ok) throw new Error('HTTP '+r.status);
       return r.text();
@@ -295,10 +300,13 @@ body{
       render(t);
     })
     .catch(function(e){
+      var extra = isLocal
+        ? '本站文档可能尚未发布（稍后再试），或该条目为特殊格式。'
+        : '直链为带时效签名的临时链接，可能已过期。';
+      var btn = isLocal ? '' :
+        '<br><br><a href="'+esc(u)+'" target="_blank" rel="noopener" style="display:inline-block;padding:8px 16px;border-radius:8px;border:1px solid var(--line);text-decoration:none;color:var(--ink)">直接打开原始文件 ↗</a>';
       fail('读取失败：'+esc(e.message)+
-           '<br><br><span style="font-size:13px;color:#7b8794">该条目可能为 PDF/Excel/Word 等非网页正文，'+
-           '或直链需重新生成。可点下方按钮尝试在 IMA 中打开。</span>'+
-           '<br><br><a href="'+esc(u)+'" target="_blank" rel="noopener" style="display:inline-block;padding:8px 16px;border-radius:8px;border:1px solid var(--line);text-decoration:none;color:var(--ink)">直接打开原始文件 ↗</a>');
+           '<br><br><span style="font-size:13px;color:#7b8794">'+extra+'</span>'+btn);
     });
 })();
 </script>
