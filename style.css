@@ -172,6 +172,48 @@
   /* ── 第三部第二排筛选（重点节奏）：与前一组按钮区分 ── */
   .filter-tag{margin-top:-4px}
   .filter-tag .lb{font-size:.74rem;font-weight:700;color:var(--ink2);align-self:center;margin-right:2px}
+  /* ★重点节奏筛选按钮计数（2026-10-26）：档位随日期滚动，数字实时反映当前分布 */
+  .filter-tag button{position:relative}
+  .filter-tag button.empty-filter{opacity:.5}
+  /* ═══ 拜访行程表（2026-10-26 陛下圣意：本次填写完营销计划，下面有时间表显示拜访行程，
+         且支持在行程表上手动添加行程） ═══ */
+  .plan-week{border:1px solid var(--line);border-radius:12px;margin-bottom:10px;overflow:hidden;background:#fff}
+  .plan-week-head{display:flex;align-items:center;gap:9px;padding:8px 12px;background:#F1F8F8;border-bottom:1px solid var(--line)}
+  .plan-week-head .ww-title{font-weight:800;font-size:.88rem;color:#0B6E6E}
+  .plan-week-head .ww-range{font-size:.75rem;color:var(--ink2)}
+  .plan-week-head .ww-cnt{margin-left:auto;font-size:.72rem;font-weight:700;color:#0F766E;background:#E6F6F5;
+    border:1px solid #BFE9E6;padding:1px 9px;border-radius:999px}
+  .plan-week.cur .plan-week-head{background:#E9F7F6}
+  .plan-day{border:1px solid var(--line);border-radius:10px;background:#fff;margin-bottom:7px}
+  .plan-day-head{display:flex;align-items:center;gap:9px;padding:7px 11px;
+    border-bottom:1px dashed #E7EDF3;background:#FAFCFD}
+  .plan-day-head .dd{font-weight:800;color:#0B6E6E;font-size:.85rem}
+  .plan-day-head .wd{color:var(--ink2);font-weight:700;font-size:.8rem}
+  .plan-day-head .cnt{margin-left:auto;font-size:.72rem;font-weight:700;color:#0F766E;background:#E6F6F5;
+    border:1px solid #BFE9E6;padding:1px 9px;border-radius:999px}
+  .plan-day-body{padding:5px 10px 7px}
+  .plan-rec{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:5px 2px;border-bottom:1px dashed #EEF2F6}
+  .plan-rec:last-child{border-bottom:none}
+  .plan-rec .r-name{font-weight:800;font-size:.85rem}
+  .plan-rec .r-time{font-weight:800;font-size:.78rem;color:#1D4ED8;background:#EFF6FF;border:1px solid #BFDBFE;padding:1px 9px;border-radius:999px}
+  .plan-rec .r-next{font-size:.74rem;color:var(--ink2);width:100%;padding-left:2px}
+  /* ★手动添加的行程条目（区别于企业登记自动汇入） */
+  .plan-rec.manual{background:#FFFBF2;border-left:3px solid #F0B429;padding-left:8px;border-radius:0 8px 8px 0}
+  .plan-rec.manual .r-name{color:#8A5A00}
+  .plan-chip-manual{font-size:.68rem;font-weight:700;color:#8A5A00;background:#FEF3C7;border:1px solid #FCD34D;
+    padding:1px 7px;border-radius:999px}
+  .plan-add{border:1px dashed #C9D6E2;border-radius:12px;padding:11px 12px;background:#FBFDFE;margin-top:4px}
+  .plan-add .pa-title{font-size:.8rem;font-weight:800;color:var(--ink2);margin-bottom:8px}
+  .plan-add-grid{display:flex;flex-wrap:wrap;gap:8px}
+  .plan-add-grid input,.plan-add-grid select{
+    flex:1 1 150px;min-width:0;height:38px;padding:0 10px;border:1px solid var(--line);border-radius:9px;
+    background:#fff;color:var(--ink);font-size:16px;font-family:inherit}
+  .plan-add-grid input:focus,.plan-add-grid select:focus{outline:2px solid rgba(14,140,140,.25);border-color:#0E8C8C}
+  .plan-add-foot{display:flex;gap:8px;align-items:center;margin-top:9px;flex-wrap:wrap}
+  .plan-del{font-size:.7rem;padding:2px 8px;border:1px solid #EFC9C4;background:#FFF6F5;color:#B03A2E;
+    border-radius:7px;cursor:pointer;min-height:26px}
+  .plan-del:hover{background:#FDEBE8}
+  .plan-hint{font-size:.72rem;color:var(--mute);margin-top:6px}
   /* ── 第一部条目按日期分组 ── */
   .art-day{border:1px solid var(--line);border-radius:11px;margin-bottom:8px;background:#fff}
   .art-day .day-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 12px;cursor:pointer;
@@ -226,6 +268,10 @@
   .form-grid,.form-foot,.r-edit,.r-del{display:none !important}
   /* 只读：隐藏数据工具按钮（保留徽标与指挥台链接） */
   #btnExport,#btnExportMD,#btnImport,#btnRestore{display:none !important}
+  /* ★第九次修订（2026-10-26）：手机只读版隐藏「手动添加行程」表单与删除按钮
+     —— 手动行程存于手机本机 localStorage，无法回流桌面版，徒增困惑；
+     手机端仅供**查看**本周+下周行程（随桌面版每日种子同步）。 */
+  .plan-add,.plan-del{display:none !important}
   /* 平滑锚点跳转 */
   html{scroll-behavior:smooth}
   /* ═══ 快速跳转胶囊（PC 不显示）═══ */

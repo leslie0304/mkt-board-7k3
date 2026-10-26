@@ -439,6 +439,67 @@
   function groupOf(r){ var s=r['营销阶段']||''; return STAGE2GROUP[s]||s||'其他待办'; }
   var GROUP_CLS={'授信':'ok','拜访':'','活动':'teal','潜在机会':'warn','其他待办':'mute'};
   var PRIO_CLS={'高':'prio-h','中':'prio-m','低':'prio-l'};
+  /* ═══ 重点节奏 · 滚动锚点（2026-10-26 陛下圣意·第九次修订）═══
+     ★痛点：原「重点标记」存的是**绝对档位名**（"下周重点"），不随日期滚动。
+       陛下上周填的"下周重点"，本周打开仍是"下周重点"——与真实节奏脱节。
+     ★正解：改存**锚点周**（anchorWeek = 该条目标定落在哪一周的周一）。
+       登记时选"下周重点" → anchorWeek = 下周一；
+       到本周打开 → anchorWeek 落在本周 → **自动呈现为"本周重点"**。
+       如此永续滚动，且天然满足陛下要求：
+         「点本周重点时，显示上周我手动添加的 + 本周新添加的」
+         ——上周填的（锚点=本周）+ 本周新填的（锚点=本周），都归到本周。
+     ★滚动规则（以「今天」所在周为基准，按锚点与今周之差）：
+        差 0 周 → 本周重点    差 1 周 → 下周重点
+        差 ≥2 周 → 下月重点    差 ≥4 周 → 下季重点
+        差 <0 周（已过期）→ 仍标为「本周重点」，并加"已过期"角标提示顺延
+     ★存量数据回推：老记录无 anchorWeek，按「最近更新」日期所在周反推档位
+       （最近更新落在本周 → 原"本周重点"；落在上周 → 原"下周重点"…），
+       保证老数据平滑接入滚动，不丢条目。 */
+  function mondayOf(dstr){
+    var d=new Date(dstr+'T00:00:00');
+    if(isNaN(d.getTime())) return '';
+    var off=(d.getDay()===0?-6:1-d.getDay());      /* 周一为一周之始 */
+    return addDays(dstr,off);
+  }
+  /* 锚点 → 当前应显示的档位（本周/下周/下月/下季）
+     ★diff 以「周」为单位（锚点与今周均为周一，差值必为 7 的整数倍）：
+       diff=0 周 → 本周重点   diff=1 周 → 下周重点
+       diff 2~3 周 → 下月重点   diff≥4 周 → 下季重点
+       diff=-1 周 → 本周重点（上周填的，顺延到本周推进）
+       diff≤-2 周 → 沉降至「已过期」（不再占用本周重点计数，列表中仍可见并标红） */
+  function anchorDiff(anchor){
+    if(!anchor) return null;
+    var cur=mondayOf(todayStr());
+    var days=Math.round((new Date(anchor+'T00:00:00')-new Date(cur+'T00:00:00'))/86400000);
+    return Math.round(days/7);        /* ★天数→周数（原按天比阈值，故错判） */
+  }
+  function anchorToTag(anchor){
+    var diff=anchorDiff(anchor);
+    if(diff===null) return '';
+    if(diff<=0) return diff>=-1?'本周重点':'';   /* ≤-2 周 → 沉降至已过期 */
+    if(diff===1) return '下周重点';
+    if(diff<4)  return '下月重点';
+    return '下季重点';
+  }
+  /* 登记时按当前档位反推锚点周（下月/下季按周数近似：下月=+2周，下季=+4周） */
+  function tagToAnchor(tag){
+    var cur=mondayOf(todayStr());
+    if(tag==='本周重点') return cur;
+    if(tag==='下周重点') return addDays(cur,7);
+    if(tag==='下月重点') return addDays(cur,14);
+    if(tag==='下季重点') return addDays(cur,28);
+    return '';
+  }
+  /* 存量回推：老记录的档位名 → 锚点周（按最近更新日反推） */
+  function backfillAnchor(r){
+    if(r['重点标记']==null) return;
+    var upd=d10(r['最近更新'])||todayStr();
+    var wk=mondayOf(upd);
+    if(r['重点标记']==='本周重点') r['anchorWeek']=wk;
+    else if(r['重点标记']==='下周重点') r['anchorWeek']=addDays(wk,7);
+    else if(r['重点标记']==='下月重点') r['anchorWeek']=addDays(wk,14);
+    else if(r['重点标记']==='下季重点') r['anchorWeek']=addDays(wk,28);
+  }
   /* 重点节奏四档（本周 / 下周 / 下月 / 下季）——空值表示未标重点 */
   var TAGS=[
     {key:'本周重点',short:'本周',cls:'tag-w',desc:'本周内必须推进'},
@@ -448,10 +509,26 @@
   ];
   var TAG_CLS={}; TAGS.forEach(function(t){ TAG_CLS[t.key]=t.cls; });
   var TAG_ORDER={'本周重点':0,'下周重点':1,'下月重点':2,'下季重点':3};
-  function tagOf(r){ var t=r['重点标记']; return TAG_CLS[t]!==undefined ? t : ''; }
+  /* ★滚动后的实际档位：优先用 anchorWeek 动态算；无锚点则回落到原字段 */
+  function tagOf(r){
+    var t=r['重点标记']; if(!t) return '';
+    if(r['anchorWeek']){ var d=anchorToTag(r['anchorWeek']); return d||''; }
+    return TAG_CLS[t]!==undefined ? t : '';
+  }
+  /* 是否已过期/沉降：锚点周早于上周（diff ≤ -2 周）——不再计入本周重点，但列表仍可见 */
+  function tagExpired(r){
+    if(!r['anchorWeek']) return false;
+    var d=anchorDiff(r['anchorWeek']);
+    return d!==null && d<=-2;
+  }
   function tagChip(r){
-    var t=tagOf(r); if(!t) return '';
-    return '<span class="chip '+TAG_CLS[t]+'" title="重点节奏">'+esc(t)+'</span>';
+    var t=tagOf(r);
+    if(!t){
+      /* 沉降条目：只显示「已过期」角标 */
+      if(tagExpired(r)) return '<span class="chip warn" title="锚定周已过（早于上周），已沉降至已过期；请更新拜访时间或重新标记重点节奏">已过期</span>';
+      return '';
+    }
+    return '<span class="chip '+TAG_CLS[t]+'" title="重点节奏：'+esc(t)+'">'+esc(t)+'</span>';
   }
   /* 拜访时间徽章：有值才渲染（存量空白数据不显示）；已过期标灰；有具体时刻则缀上（00:00 视为未定不显示） */
   function visitChip(r){
@@ -476,6 +553,24 @@
       '<div class="r-act"><b>当前情况：</b>'+esc(r['当前情况']||'—')+'</div>'+
       '<div class="r-act"><b>下一步：</b>'+esc(r['下一步动作']||'—')+'</div></div>';
   }
+  /* ★重点节奏筛选按钮实时计数（2026-10-26）：档位随日期滚动，
+     按钮上的数字随之变化——点「本周重点」看到的条数 = 锚点落在本周的全部
+     （上周手动填的 + 本周新填的），与陛下要求一致。 */
+  function updateTagFilterCounts(){
+    var box=document.getElementById('liveFilterTag'); if(!box) return;
+    var c={'all':liveRows.length};
+    liveRows.forEach(function(r){ var t=tagOf(r); if(t) c[t]=(c[t]||0)+1; });
+    box.querySelectorAll('button[data-f]').forEach(function(b){
+      var k=b.getAttribute('data-f');
+      var n=c[k]||0;
+      var old=b.getAttribute('data-n');
+      if(old!==String(n)) b.setAttribute('data-n',String(n));
+      var lab=b.getAttribute('data-label')||b.textContent.replace(/\s*\d+\s*$/,'').trim();
+      b.setAttribute('data-label',lab);
+      b.textContent = (k==='all'?'全部':lab)+' '+n;
+      b.classList.toggle('empty-filter', n===0 && k!=='all');
+    });
+  }
   function renderLive(){
     var el=document.getElementById('liveList'); if(!el) return;
     var rows=liveRows.filter(function(r){
@@ -483,6 +578,7 @@
       if(liveTag!=='all'&&tagOf(r)!==liveTag) return false;
       return true;
     });
+    updateTagFilterCounts();
     if(!rows.length){ el.innerHTML='<div class="empty">当前筛选下暂无企业</div>'; return; }
     var html='';
     GROUPS.forEach(function(g){
@@ -503,12 +599,37 @@
     el.innerHTML=html;
   }
 
-  /* ═══ 下周拜访计划（陛下旨意 2026-10-20）═══
-     点「下周拜访计划」标签 → 展开面板：以真实「今天」推下周（周一~周日）七天骨架，
-     把填写了「拜访时间」且落在下周的正在营销记录，按日期正序（同日内先按时刻、再按 优先级→重点节奏）排入各天。
-     需要手排行程时才动数——非全自动排程。 */
-  function planRows(){
-    var w=weekRange();
+  /* ═══ 拜访行程表（2026-10-26 陛下圣意·第九次修订）═══
+     陛下原话：「想本次填写完营销计划，在下面有个时间表之类的可以显示我的拜访行程，
+                 同时也支持可以在行程表上手动添加行程」
+     ① 窗口：本周 + 下周**双周**（原仅下周）——因重点节奏已随日期滚动，
+        本周的关注度与下周同级，行程必须同屏可见。
+     ② 数据源两路合流：
+        · 自动路：从「正在营销」记录里填了「拜访时间」的条目，按日期归入各天；
+        · 手动路：行程表里手动添加的独立行程条目（不绑定企业，可填时间/机构/事项）。
+     ③ 手动行程存 LS_PLAN（独立 localStorage 键），随 JSON 导出/导入一起走。 */
+  var LS_PLAN = 'wb_mbb_desk_plan_v1';
+  var planRowsManual=[];   /* 手动行程：[{id,日期,时刻,机构,事项,备注}] */
+
+  function loadPlanManual(){
+    var raw=lsGet(LS_PLAN);
+    if(!raw) return [];
+    try{ var a=JSON.parse(raw); return Array.isArray(a)?a:[]; }catch(e){ return []; }
+  }
+  function savePlanManual(){ lsSet(LS_PLAN, JSON.stringify(planRowsManual)); }
+
+  /* 本周 + 下周 双周窗口 */
+  function planWindows(){
+    var w=weekRange();                 /* w = 下周（周一~周日） */
+    var cur=mondayOf(todayStr());       /* 本周周一 */
+    return [
+      {key:'cur', title:'本周', s:cur, e:addDays(cur,6)},
+      {key:'next',title:'下周', s:w.s,   e:w.e}
+    ];
+  }
+  /* 窗口内自动路：填了拜访时间且落在窗口内的营销记录 */
+  function planRows(win){
+    var w=win||planWindows()[1];
     return liveRows.filter(function(r){
       var v=visitOf(r); return v && v>=w.s && v<=w.e;
     }).sort(function(a,b){
@@ -520,11 +641,24 @@
       return byLiveDesc(a,b);
     });
   }
+  /* 窗口内手动路 */
+  function planManualRows(win){
+    var w=win||planWindows()[1];
+    return planRowsManual.filter(function(p){
+      var d=d10(p['日期']); return d && d>=w.s && d<=w.e;
+    }).sort(function(a,b){
+      var da=d10(a['日期']), db=d10(b['日期']);
+      if(da!==db) return da<db?-1:1;
+      var ta=a['时刻']||'99:99', tb=b['时刻']||'99:99';
+      if(ta!==tb) return ta<tb?-1:1;
+      return (a['id']||'')<(b['id']||'')?-1:1;
+    });
+  }
   function planOutCount(){
-    /* 窗口外：早于下周（含已过期）记为「已过期」，晚于下周记为「更晚」 */
-    var w=weekRange(), past=0, later=0;
+    /* 窗口外（双周之外）：早于本周（含已过期）记为「已过期」，晚于下周记为「更晚」 */
+    var ws=planWindows(), lo=ws[0].s, hi=ws[1].e, past=0, later=0;
     liveRows.forEach(function(r){ var v=visitOf(r); if(!v) return;
-      if(v<w.s) past++; else if(v>w.e) later++; });
+      if(v<lo) past++; else if(v>hi) later++; });
     return {past:past,later:later};
   }
   function planRecLine(r){
@@ -534,34 +668,115 @@
       groupChip(r)+prioChip(r)+tagChip(r)+
       '<span class="r-next">下一步：'+esc(r['下一步动作']||'—')+'</span></div>';
   }
+  /* 手动行程行（带删除按钮） */
+  function planManualLine(p){
+    var tm=p['时刻']||'';
+    return '<div class="plan-rec manual">'+
+      '<span class="plan-chip-manual">手动</span>'+
+      '<span class="r-name">'+esc(p['机构']||p['事项']||'（未命名行程）')+'</span>'+
+      (tm?'<span class="r-time" title="行程时刻">'+esc(tm)+'</span>':'')+
+      (p['事项']&&p['机构']?'<span class="r-next" style="width:auto">'+esc(p['事项'])+'</span>':'')+
+      (p['备注']?'<span class="r-next">备注：'+esc(p['备注'])+'</span>':'')+
+      '<button class="plan-del" type="button" data-del-plan="'+esc(p['id'])+'">删除</button>'+
+      '</div>';
+  }
+  /* 单周渲染 */
+  function planWeekHtml(win){
+    var auto=planRows(win), man=planManualRows(win);
+    var total=auto.length+man.length;
+    var h='<div class="plan-week'+(win.key==='cur'?' cur':'')+'">'+
+      '<div class="plan-week-head"><span class="ww-title">'+esc(win.title)+'</span>'+
+      '<span class="ww-range">'+win.s.slice(5)+' ~ '+win.e.slice(5)+'</span>'+
+      '<span class="ww-cnt">'+total+' 项</span></div>';
+    if(!total){
+      h+='<div style="padding:10px 12px;font-size:.78rem;color:var(--mute)">'+esc(win.title)+'暂无行程。可在下方「手动添加行程」直接新增，或在「正在营销」中填写「拜访时间」自动汇入。</div>';
+    }else{
+      for(var i=0;i<7;i++){
+        var day=addDays(win.s,i);
+        var list=auto.filter(function(r){ return visitOf(r)===day; });
+        var mlist=man.filter(function(p){ return d10(p['日期'])===day; });
+        if(!list.length&&!mlist.length) continue;
+        var dd=day.slice(5), n=list.length+mlist.length;
+        var todayMark=(day===todayStr())?' <span class="chip tag-w">今天</span>':'';
+        h+='<div class="plan-day"><div class="plan-day-head"><span class="dd">'+dd+'</span>'+
+          '<span class="wd">'+wdOf(day)+'</span>'+todayMark+
+          '<span class="cnt">'+n+' 项</span></div>'+
+          '<div class="plan-day-body">'+list.map(planRecLine).join('')+mlist.map(planManualLine).join('')+'</div></div>';
+      }
+    }
+    h+='</div>';
+    return h;
+  }
+  /* 手动添加入口（表单） */
+  function planAddHtml(){
+    var today=todayStr();
+    return '<div class="plan-add">'+
+      '<div class="pa-title">＋ 手动添加行程（不绑定企业登记，随时可改可删）</div>'+
+      '<div class="plan-add-grid">'+
+        '<input type="date" id="paDate" value="'+esc(today)+'" title="行程日期" style="flex:0 0 150px">'+
+        '<input type="time" id="paTime" value="" title="行程时刻（可留空）" style="flex:0 0 120px">'+
+        '<input type="text" id="paOrg" placeholder="机构/客户名称" maxlength="40">'+
+        '<input type="text" id="paItem" placeholder="事项，如 首次拜访 / 授信面谈" maxlength="40">'+
+        '<input type="text" id="paNote" placeholder="备注（可留空）" maxlength="60">'+
+      '</div>'+
+      '<div class="plan-add-foot">'+
+        '<button class="btn pri" id="btnAddPlan" type="button">添加到行程表</button>'+
+        '<span class="plan-hint">保存后即时排入对应日期；本机保存，换电脑请用「导出/导入」迁移。</span>'+
+      '</div></div>';
+  }
   function renderPlan(){
     var panel=document.getElementById('planPanel'); if(!panel) return;
     if(!planOpen){ panel.style.display='none'; return; }
     panel.style.display='';
-    var w=weekRange(), rows=planRows(), out=planOutCount();
-    var h='<div class="plan-head"><span class="pt">下周拜访与行程安排</span>'+
-      '<span class="pr">下周 '+w.s+'（'+wdOf(w.s)+'） ~ '+w.e+'（'+wdOf(w.e)+'）</span></div>';
-    if(!rows.length){
-      h+='<div class="plan-empty">下周暂无拜访安排。<br>'+
-        '① 在下方登记/修改正在营销记录时填「拜访时间」（上门日期与时刻）；<br>'+
-        '② 时间落在下周的记录会自动排进本清单（周一到周日）。</div>';
-    }else{
-      for(var i=0;i<7;i++){
-        var day=addDays(w.s,i), list=rows.filter(function(r){ return visitOf(r)===day; });
-        if(!list.length) continue;
-        h+='<div class="plan-day"><div class="plan-day-head"><span class="dd">'+day.slice(5)+'</span>'+
-          '<span class="wd">'+wdOf(day)+'</span><span class="cnt">'+list.length+' 家</span></div>'+
-          '<div class="plan-day-body">'+list.map(planRecLine).join('')+'</div></div>';
-      }
-    }
-    h+='<div class="plan-sum">窗口外：早于下周 '+out.past+' 项（含已过期，可更新拜访时间顺延）· 晚于下周 '+out.later+' 项</div>';
+    var wins=planWindows(), out=planOutCount();
+    var total=0;
+    wins.forEach(function(w){ total+=planRows(w).length+planManualRows(w).length; });
+    var h='<div class="plan-head"><span class="pt">拜访行程表</span>'+
+      '<span class="pr">本周 '+wins[0].s+' ~ '+wins[0].e+'　｜　下周 '+wins[1].s+' ~ '+wins[1].e+'</span></div>';
+    h+=wins.map(planWeekHtml).join('');
+    h+=planAddHtml();
+    h+='<div class="plan-sum">窗口外：已过期 '+out.past+' 项（可更新拜访时间顺延）· 更晚 '+out.later+' 项 · 手动行程 '+planRowsManual.length+' 条</div>';
     panel.innerHTML=h;
+    bindPlanEvents();
+  }
+  /* 行程表交互绑定（渲染后执行，避免重复绑定） */
+  function bindPlanEvents(){
+    var panel=document.getElementById('planPanel'); if(!panel) return;
+    var addBtn=document.getElementById('btnAddPlan');
+    if(addBtn && !addBtn.getAttribute('data-bound')){
+      addBtn.setAttribute('data-bound','1');
+      addBtn.addEventListener('click',function(){
+        var date=(document.getElementById('paDate')||{}).value||'';
+        var time=(document.getElementById('paTime')||{}).value||'';
+        var org=((document.getElementById('paOrg')||{}).value||'').trim();
+        var item=((document.getElementById('paItem')||{}).value||'').trim();
+        var note=((document.getElementById('paNote')||{}).value||'').trim();
+        if(!date){ alert('请选择行程日期'); return; }
+        if(!org&&!item){ alert('请填写机构名称或事项'); return; }
+        planRowsManual.push({
+          'id':'p'+(Date.now())+Math.floor(Math.random()*1000),
+          '日期':date, '时刻':time, '机构':org, '事项':item, '备注':note
+        });
+        savePlanManual(); renderPlan(); updatePlanTag();
+      });
+    }
+    panel.querySelectorAll('[data-del-plan]').forEach(function(b){
+      if(b.getAttribute('data-bound')) return;
+      b.setAttribute('data-bound','1');
+      b.addEventListener('click',function(){
+        var id=b.getAttribute('data-del-plan');
+        if(!confirm('确认删除该行程条目？')) return;
+        planRowsManual=planRowsManual.filter(function(p){ return p['id']!==id; });
+        savePlanManual(); renderPlan(); updatePlanTag();
+      });
+    });
   }
   function updatePlanTag(){
-    var cnt=planRows().length;
-    var ct=document.getElementById('planCnt'); if(ct) ct.textContent='下周共 '+cnt+' 家';
+    var wins=planWindows(), total=0;
+    wins.forEach(function(w){ total+=planRows(w).length+planManualRows(w).length; });
+    var ct=document.getElementById('planCnt'); if(ct) ct.textContent='本周+下周共 '+total+' 项';
     var rg=document.getElementById('planRange');
-    if(rg){ var w=weekRange(); rg.textContent='下周 '+w.s.slice(5)+' ~ '+w.e.slice(5); }
+    if(rg) rg.textContent='本周 '+wins[0].s.slice(5)+' ~ 下周 '+wins[1].e.slice(5);
   }
   function togglePlan(){
     planOpen=!planOpen;
@@ -583,8 +798,8 @@
     var st={}; GROUPS.forEach(function(g){ st[g.key]=0; });
     liveRows.forEach(function(r){ var g=groupOf(r); st[g]=(st[g]||0)+1; });
     var weekN=liveRows.filter(function(r){ return tagOf(r)==='本周重点'; }).length;
-    var planN=planRows().length;
-    el.innerHTML='信息来源：窗口内 <b>'+total+'</b> 篇 ｜ 营销匹配：前瞻 / 企业 / 机构 3 期 ｜ 正在营销：<b>'+liveRows.length+'</b> 家（授信 '+st['授信']+' · 拜访 '+st['拜访']+' · 活动 '+st['活动']+' · 潜在机会 '+st['潜在机会']+' · 其他待办 '+st['其他待办']+'）｜ 本周重点 <b>'+weekN+'</b> 家 ｜ 下周拜访 <b>'+planN+'</b> 家';
+    var planN=0; planWindows().forEach(function(w){ planN+=planRows(w).length+planManualRows(w).length; });
+    el.innerHTML='信息来源：窗口内 <b>'+total+'</b> 篇 ｜ 营销匹配：前瞻 / 企业 / 机构 3 期 ｜ 正在营销：<b>'+liveRows.length+'</b> 家（授信 '+st['授信']+' · 拜访 '+st['拜访']+' · 活动 '+st['活动']+' · 潜在机会 '+st['潜在机会']+' · 其他待办 '+st['其他待办']+'）｜ 本周重点 <b>'+weekN+'</b> 家 ｜ 本周+下周行程 <b>'+planN+'</b> 项';
   }
 
   function renderAll(){ renderSnap(); renderSnapBadge(); renderLive(); updatePlanTag(); renderPlan(); renderFocus(); bindReadMarkers(); updateReadStat(); refreshReadCascade(); }
@@ -648,7 +863,8 @@
 
   /* ═══ 导出 / 导入 / 恢复初始 ═══ */
   function exportJSON(){
-    var data={app:'营销作战板-桌面版',version:1,exportedAt:new Date().toISOString(),snap:snapRows,live:liveRows};
+    var data={app:'营销作战板-桌面版',version:1,exportedAt:new Date().toISOString(),
+      snap:snapRows,live:liveRows,plan:planRowsManual};  /* ★手动行程随备份走 */
     var blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
     var a=document.createElement('a');
     a.href=URL.createObjectURL(blob);
@@ -665,10 +881,12 @@
   var mdTimer=null;
   function mdCell(s){ return String(s==null?'':s).replace(/\|/g,'\\|').replace(/\s+/g,' ').trim()||'—'; }
   function buildLiveMD(){
-    var w=weekRange(), planN=planRows().length;
+    var wins=planWindows(), planN=0;
+    wins.forEach(function(w){ planN+=planRows(w).length+planManualRows(w).length; });
     var L=['# 营销作战板 · 第三部登记备份','',
       '> 自动导出时间：'+new Date().toLocaleString('zh-CN')+' ｜ 正在营销共 '+liveRows.length+' 家',
-      '> 下周拜访（'+w.s+' ~ '+w.e+'）：'+planN+' 家',''];
+      '> 拜访行程（本周 '+wins[0].s.slice(5)+' ~ 下周 '+wins[1].e.slice(5)+'）：'+planN+' 项（含手动 '+planRowsManual.length+' 条）',
+      '> 重点节奏为**滚动档位**：随日期自动前进（上周填的「下周重点」本周即显示为「本周重点」）',''];
     GROUPS.forEach(function(g){
       var gr=liveRows.filter(function(r){ return groupOf(r)===g.key; });
       L.push('## '+g.key+'（'+gr.length+' 家）','','> '+g.desc,'');
@@ -679,6 +897,30 @@
       });
       L.push('');
     });
+    /* ★拜访行程表（含手动添加的行程） */
+    L.push('## 拜访行程表（本周+下周）','');
+    var any=false;
+    wins.forEach(function(w){
+      L.push('### '+w.title+'（'+w.s+' ~ '+w.e+'）','');
+      var rows=[];
+      for(var i=0;i<7;i++){
+        var day=addDays(w.s,i);
+        planRows(w).forEach(function(r){ if(visitOf(r)===day) rows.push([day,'自动',r]); });
+        planManualRows(w).forEach(function(p){ if(d10(p['日期'])===day) rows.push([day,'手动',p]); });
+      }
+      if(!rows.length){ L.push('暂无行程',''); return; }
+      any=true;
+      L.push('| 日期 | 星期 | 来源 | 时刻 | 机构/事项 | 备注/下一步 |','| --- | --- | --- | --- | --- | --- |');
+      rows.forEach(function(x){
+        var r=x[2], isM=(x[1]==='手动');
+        L.push('| '+mdCell(x[0])+' | '+mdCell(wdOf(x[0]))+' | '+x[1]+' | '+
+          mdCell(isM?(r['时刻']||''):visitTime(r))+' | '+
+          mdCell(isM?((r['机构']||'')+' '+(r['事项']||'')).trim():r['企业机构'])+' | '+
+          mdCell(isM?(r['备注']||''):(r['下一步动作']||''))+' |');
+      });
+      L.push('');
+    });
+    if(!any && !planRowsManual.length) L.push('（本周与下周均无行程）','');
     return L.join('\n');
   }
   function autoExportMD(){
@@ -710,11 +952,14 @@
           var ok=d.snap.every(function(r){ return r&&typeof r['标题']==='string'&&typeof r['类型']==='string'; })
                 &&d.live.every(function(r){ return r&&typeof r['企业机构']==='string'&&r['企业机构']; });
           if(!ok) throw new Error('bad rows');
-          if(!confirm('导入将覆盖本机现有数据（快照 '+d.snap.length+' 条 · 正在营销 '+d.live.length+' 家），确定继续？')) return;
+          if(!confirm('导入将覆盖本机现有数据（快照 '+d.snap.length+' 条 · 正在营销 '+d.live.length+' 家'+
+                      (Array.isArray(d.plan)?' · 手动行程 '+d.plan.length+' 条':'')+'），确定继续？')) return;
           snapRows=d.snap.slice(); liveRows=d.live.slice();
           snapRows.sort(byDateDesc); liveRows.sort(byLiveDesc);
-          saveSnap(); saveLive(); renderAll();
-          alert('导入成功：快照 '+snapRows.length+' 条 · 正在营销 '+liveRows.length+' 家');
+          /* ★手动行程随导入恢复（老备份无 plan 字段则清空） */
+          planRowsManual=Array.isArray(d.plan)?d.plan.slice():[];
+          saveSnap(); saveLive(); savePlanManual(); renderAll();
+          alert('导入成功：快照 '+snapRows.length+' 条 · 正在营销 '+liveRows.length+' 家 · 手动行程 '+planRowsManual.length+' 条');
         }catch(e){
           alert('导入失败：文件格式不正确（需包含 snap 与 live 两个数组的 JSON）');
         }
@@ -726,7 +971,8 @@
       if(!confirm('恢复初始数据？本机的新增/修改将被清除（建议先「导出数据」备份）。')) return;
       snapRows=cloneRows(SEED_SNAP); liveRows=cloneRows(SEED_LIVE);
       snapRows.sort(byDateDesc); liveRows.sort(byLiveDesc);
-      saveSnap(); saveLive(); renderAll();
+      planRowsManual=[];           /* ★手动行程一并清空 */
+      saveSnap(); saveLive(); savePlanManual(); renderAll();
     });
     var bcr=document.getElementById('btnClearRead');
     if(bcr) bcr.addEventListener('click',function(){
@@ -740,6 +986,14 @@
     probeStorage();
     snapRows=loadRows(LS_SNAP,SEED_SNAP).sort(byDateDesc);
     liveRows=loadRows(LS_LIVE,SEED_LIVE).sort(byLiveDesc);
+    planRowsManual=loadPlanManual();   /* ★手动行程（独立于企业登记） */
+    /* ★滚动锚点迁移（2026-10-26）：存量记录无 anchorWeek，按「最近更新」回推，
+       缺失者（无最近更新）以「今天」所在周回推。老数据平滑接入滚动，不丢条目。 */
+    var anchorDirty=false;
+    liveRows.forEach(function(r){
+      if(!r['anchorWeek'] && r['重点标记']){ backfillAnchor(r); anchorDirty=true; }
+    });
+    if(anchorDirty) saveLive();
     DATA_TODAY=computeDataToday();
 
     var liveCard=document.getElementById('btnAddLive').closest('.card');
@@ -788,7 +1042,9 @@
       liveCard.querySelector('[name="企业机构"]').value=r['企业机构']||'';
       liveCard.querySelector('[name="营销阶段"]').value=r['营销阶段']||'';
       liveCard.querySelector('[name="优先级"]').value=prioOf(r);
-      liveCard.querySelector('[name="重点标记"]').value=tagOf(r);
+      /* ★回填「重点标记」：用原始档位（用户当初填的），不用滚动后的显示值——
+         否则编辑保存会二次漂移（上周填的"下周重点"回填成"本周重点"，保存后又锚到本周） */
+      liveCard.querySelector('[name="重点标记"]').value=r['重点标记']||'';
       liveCard.querySelector('[name="拜访时间"]').value=visitFillVal(r);  /* 兼容旧纯日期：补 T00:00 占位 */
       liveCard.querySelector('[name="当前情况"]').value=r['当前情况']||'';
       liveCard.querySelector('[name="下一步动作"]').value=r['下一步动作']||'';
@@ -826,6 +1082,9 @@
         r['营销阶段']=val(liveCard,'营销阶段')||'其他';
         r['优先级']=val(liveCard,'优先级')||'中';
         r['重点标记']=val(liveCard,'重点标记');
+        /* ★锚点周：改档位即改锚点，滚动随之生效；
+           若未选档位（空）→ 保留原锚点，不破坏既有滚动位置 */
+        if(r['重点标记']) r['anchorWeek']=tagToAnchor(r['重点标记']);
         r['拜访时间']=normVisit(val(liveCard,'拜访时间'));  /* 00:00 未定时刻回落纯日期存储 */
         r['当前情况']=val(liveCard,'当前情况');
         r['下一步动作']=val(liveCard,'下一步动作');
@@ -839,6 +1098,7 @@
         '营销阶段':val(liveCard,'营销阶段')||'其他',
         '优先级':val(liveCard,'优先级')||'中',
         '重点标记':val(liveCard,'重点标记'),
+        'anchorWeek':tagToAnchor(val(liveCard,'重点标记')),  /* ★锚点周：滚动档位的基准 */
         '拜访时间':normVisit(val(liveCard,'拜访时间')),  /* 00:00 未定时刻回落纯日期存储 */
         '当前情况':val(liveCard,'当前情况'),
         '下一步动作':val(liveCard,'下一步动作'),
