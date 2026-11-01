@@ -913,10 +913,18 @@
       var syncTbd=function(){
         var on=!!tbdBox.checked;
         var dEl=document.getElementById('paDate'), tEl=document.getElementById('paTime');
-        if(dEl) dEl.disabled=on;
-        if(tEl) tEl.disabled=on;
+        if(dEl){
+          dEl.disabled=on;
+          /* ★勾选即清空日期：既然时间待定，就不能看着还固定在某一天 */
+          if(on){ dEl.value=''; dEl.setAttribute('placeholder','日期待定'); }
+          else { if(!dEl.value) dEl.value=todayStr(); dEl.removeAttribute('placeholder'); }
+        }
+        if(tEl){
+          tEl.disabled=on;
+          if(on) tEl.value='';
+        }
         var hint=document.getElementById('paTbdHint');
-        if(hint) hint.textContent=on?'已选「时间待定」：本条不占具体日期与时刻，保存后归入「时间待定」区块'
+        if(hint) hint.textContent=on?'已选「时间待定」：本条不固定日期与时刻，保存后归入「时间待定」区块'
                                        :'保存后即时排入对应日期；本机保存，换电脑请用「导出/导入」迁移。';
       };
       tbdBox.addEventListener('change',syncTbd);
