@@ -238,6 +238,32 @@
   .plan-half .plan-rec{padding:4px 2px}
   .plan-half .plan-rec:last-child{border-bottom:none}
   .plan-empty-half{font-size:.71rem;color:var(--mute);padding:3px 2px 1px}
+  /* ★第十二次修订（2026-11-01）：本周「已过去」的日期自动收进折叠区（默认收起） */
+  .plan-past{border:1px dashed #CBD5E1;border-radius:10px;background:#FAFBFC;margin-bottom:8px;overflow:hidden}
+  .plan-past>summary{cursor:pointer;list-style:none;padding:7px 11px;font-size:.8rem;font-weight:800;
+    color:#64748B;background:#F4F6F8;user-select:none}
+  .plan-past>summary::-webkit-details-marker{display:none}
+  .plan-past>summary::before{content:'▸ ';color:#94A3B8}
+  .plan-past[open]>summary::before{content:'▾ '}
+  .plan-past[open]>summary{background:#EEF2F6}
+  .plan-past>summary .pb-n{font-weight:700;color:#94A3B8;margin-left:6px}
+  .plan-past .plan-day{margin:7px 8px;opacity:.92}
+  .plan-past .plan-day-head{background:#F6F7F9}
+  /* ★「时间待定」分组：无时刻的行程不进上午栏，单独成组 */
+  .plan-tbd{border-top:1px dashed #E2E8F0;margin-top:6px;padding-top:5px}
+  .plan-tbd .hh{font-size:.72rem;font-weight:800;color:#B45309;margin-bottom:2px;display:flex;align-items:center;gap:6px}
+  .plan-tbd .hh .hc{font-weight:700;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;
+    padding:0 7px;border-radius:999px;font-size:.68rem}
+  .plan-tbd .plan-rec{background:#FFFBF2;border-left:3px solid #F0B429;border-radius:0 8px 8px 0;padding-left:8px}
+  .pa-tbd{display:inline-flex;align-items:center;gap:5px;font-size:.78rem;font-weight:700;color:#B45309;
+    background:#FFFBEB;border:1px solid #FDE68A;padding:5px 11px;border-radius:8px;cursor:pointer;white-space:nowrap}
+  .pa-tbd input{width:15px;height:15px;margin:0;accent-color:#D97706}
+  .plan-chip-tbd{font-size:.7rem;font-weight:800;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;
+    padding:1px 8px;border-radius:999px}
+  .plan-tbdbox{border:1px dashed #F0B429;border-radius:12px;background:#FFFDF7;padding:9px 12px;margin-bottom:10px}
+  .plan-tbdbox .tb-h{display:flex;align-items:center;gap:8px;font-weight:800;font-size:.84rem;color:#B45309;margin-bottom:5px}
+  .plan-tbdbox .tb-n{font-size:.72rem;font-weight:700;color:#92400E;background:#FEF3C7;border:1px solid #FDE68A;
+    padding:1px 9px;border-radius:999px}
   @media (max-width:760px){ .plan-ampm{grid-template-columns:1fr} }
   /* ── 第一部条目按日期分组 ── */
   .art-day{border:1px solid var(--line);border-radius:11px;margin-bottom:8px;background:#fff}
