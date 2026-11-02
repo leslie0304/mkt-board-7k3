@@ -1452,33 +1452,74 @@
 
   /* 合并远端状态快照（手机版主用；桌面版亦可调用以回灌）
      st = {version, exportedAt, live:[…], plan:[…]}
-     规则：① 本机已有同名条目 → 不覆盖（本机数据绝对优先）；
-           ② 合并后写回本机 localStorage —— 手机离线时仍能看到行程；
-           ③ 合并后整表重绘，行程表即时出现。 */
-  window.applyRemoteState=function(st){
+     opts.overwrite = true 时以远端为准整表替换（手机只读视图专用：电脑是唯一真源，
+       电脑改了拜访时间 / 删了行，手机必须跟着变，不能只增不减）。
+     默认（不传 opts 或 overwrite 非真）为「只增不覆盖」，供桌面回灌时保护本机数据。 */
+  window.applyRemoteState=function(st, opts){
     if(!st || st.version!==1) return {ok:false, reason:'bad format'};
-    var addedLive=0, addedPlan=0;
+    opts = opts || {};
+    var overwrite = !!opts.overwrite;
+    var addedLive=0, updLive=0, addedPlan=0, updPlan=0;
+
     if(Array.isArray(st.live) && st.live.length){
-      var have={}; liveRows.forEach(function(r){ have[r['企业机构']]=1; });
-      st.live.forEach(function(r){
-        if(!r || !r['企业机构']) return;
-        if(have[r['企业机构']]) return;      /* 本机已有同名 → 不覆盖 */
-        liveRows.push(cloneRows([r])[0]); have[r['企业机构']]=1; addedLive++;
-      });
-      liveRows.sort(byLiveDesc);
+      if(overwrite){
+        /* ★手机只读视图同步规则（双轨）：
+           ① 远端（电脑）有的同名条目 → 以电脑字段为准整体覆盖（拜访时间等必跟）；
+           ② 电脑有而本机没有 → 新增，标记 _src='sync'；
+           ③ 本机有而电脑没有 → 若标记 _src='sync'（此前从电脑同步来的）则删除，
+              若是 IMA 种子基线（无标记或 _src='seed'）则保留，不误删基线。 */
+        var rm={}; st.live.forEach(function(r){ if(r && r['企业机构']) rm[r['企业机构']]=1; });
+        liveRows = liveRows.filter(function(r){
+          if(!r || !r['企业机构']) return true;
+          if(rm[r['企业机构']]) return true;
+          if(r['_src']==='sync'){ updLive++; return false; }   /* 电脑已删除 → 同步删除 */
+          r['_src']='seed'; return true;                        /* 种子基线 → 保留 */
+        });
+        st.live.forEach(function(r){
+          if(!r || !r['企业机构']) return;
+          var hit=null;
+          for(var i=0;i<liveRows.length;i++){ if(liveRows[i]['企业机构']===r['企业机构']){ hit=liveRows[i]; break; } }
+          if(hit){
+            var isSeed = !hit['_src'];           /* 无标记 = IMA 种子基线 → 不受电脑删除牵连 */
+            for(var k in r){ if(Object.prototype.hasOwnProperty.call(r,k)) hit[k]=r[k]; }
+            hit['_src'] = isSeed ? 'seed' : 'sync';
+            updLive++;
+          } else {
+            var nr=cloneRows([r])[0]; nr['_src']='sync';
+            liveRows.push(nr); addedLive++;
+          }
+        });
+        liveRows.sort(byLiveDesc);
+      } else {
+        var have={}; liveRows.forEach(function(r){ have[r['企业机构']]=1; });
+        st.live.forEach(function(r){
+          if(!r || !r['企业机构']) return;
+          if(have[r['企业机构']]) return;      /* 本机已有同名 → 不覆盖 */
+          liveRows.push(cloneRows([r])[0]); have[r['企业机构']]=1; addedLive++;
+        });
+        liveRows.sort(byLiveDesc);
+      }
     }
     if(Array.isArray(st.plan)){
-      var haveId={}; planRowsManual.forEach(function(p){ haveId[p['id']]=1; });
-      st.plan.forEach(function(p){
-        if(!p || !p['id'] || haveId[p['id']]) return;
-        planRowsManual.push(cloneRows([p])[0]); haveId[p['id']]=1; addedPlan++;
-      });
+      if(overwrite){
+        var rp={}; st.plan.forEach(function(p){ if(p && p['id']) rp[p['id']]=1; });
+        planRowsManual.forEach(function(p){ if(p && p['id'] && !rp[p['id']]) updPlan++; });
+        planRowsManual = st.plan.map(function(p){ return cloneRows([p])[0]; });
+      } else {
+        var haveId={}; planRowsManual.forEach(function(p){ haveId[p['id']]=1; });
+        st.plan.forEach(function(p){
+          if(!p || !p['id'] || haveId[p['id']]) return;
+          planRowsManual.push(cloneRows([p])[0]); haveId[p['id']]=1; addedPlan++;
+        });
+      }
     }
-    if(addedLive || addedPlan){
+    if(addedLive || updLive || addedPlan || updPlan || overwrite){
       saveLive(); savePlanManual();
       renderAll();
     }
-    return {ok:true, addedLive:addedLive, addedPlan:addedPlan, exportedAt:st.exportedAt||''};
+    return {ok:true, addedLive:addedLive, updLive:updLive,
+            addedPlan:addedPlan, updPlan:updPlan,
+            overwrite:overwrite, exportedAt:st.exportedAt||''};
   };
 
   /* ★注入快照种子（手机版专用，2026-11-02）
