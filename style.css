@@ -238,6 +238,30 @@
   .plan-half .plan-rec{padding:4px 2px}
   .plan-half .plan-rec:last-child{border-bottom:none}
   .plan-empty-half{font-size:.71rem;color:var(--mute);padding:3px 2px 1px}
+  /* ═══ 第十四次修订（2026-11-02 陛下圣意）：行程表内「就地录入」 ═══
+     —— 周二上午的格子里直接敲，不必跳到下方表单 */
+  .plan-addinline{display:inline-flex;align-items:center;gap:4px;font-size:.7rem;font-weight:700;color:#0B6E6E;
+    background:#F2FBFA;border:1px dashed #7FCFC8;border-radius:7px;padding:2px 9px;cursor:pointer;
+    min-height:26px;line-height:1.5}
+  .plan-addinline:hover{background:#E2F6F4;border-style:solid;color:#095E5E}
+  .plan-half .plan-addinline{margin-top:4px}
+  .plan-day-empty .plan-day-head{background:#FAFCFD}
+  .plan-day-empty .plan-addinline{margin-left:auto}
+  .plan-inline{margin-top:6px;border:1px solid #A7DED9;background:#F7FCFC;border-radius:9px;padding:7px 8px;
+    display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .plan-inline input,.plan-inline select{height:30px;font-size:16px;padding:0 8px;border:1px solid var(--line);
+    border-radius:7px;background:#fff;color:var(--ink);font-family:inherit;min-width:0}
+  .plan-inline input:focus,.plan-inline select:focus{outline:2px solid rgba(14,140,140,.25);border-color:#0E8C8C}
+  .plan-inline .pi-time{flex:0 0 106px}
+  .plan-inline .pi-half{flex:0 0 72px}
+  .plan-inline .pi-org{flex:1 1 110px}
+  .plan-inline .pi-item{flex:1 1 110px}
+  .plan-inline .pi-note{flex:1 1 100px}
+  .plan-inline button{height:30px;padding:0 12px;border-radius:7px;font-size:.74rem;font-weight:700;cursor:pointer;
+    border:1px solid #C7D6E5;background:#F6FAFE;color:#1D4ED8;white-space:nowrap}
+  .plan-inline button.pri{border-color:#0E8C8C;background:#0E8C8C;color:#fff}
+  .plan-inline button.pri:hover{background:#0A7373;border-color:#0A7373}
+  .plan-inline .pi-hint{font-size:.68rem;color:var(--ink2);width:100%;line-height:1.5}
   /* ★第十二次修订（2026-11-01）：本周「已过去」的日期自动收进折叠区（默认收起） */
   .plan-past{border:1px dashed #CBD5E1;border-radius:10px;background:#FAFBFC;margin-bottom:8px;overflow:hidden}
   .plan-past>summary{cursor:pointer;list-style:none;padding:7px 11px;font-size:.8rem;font-weight:800;
@@ -326,6 +350,9 @@
   /* ★第十次修订（2026-10-26）：手机只读版隐藏行右侧「修改」「改期」按钮
      —— 手机不可编辑，改期须回电脑桌面版操作。 */
   .plan-editbtn{display:none !important}
+  /* ★第十四次修订（2026-11-02）：手机只读版隐藏行程表内「＋ 添加」就地录入入口
+     —— 与「修改/删除」同理，手机端不可编辑，录入须回电脑桌面版。 */
+  .plan-addinline,.plan-inline{display:none !important}
   /* 平滑锚点跳转 */
   html{scroll-behavior:smooth}
   /* ═══ 快速跳转胶囊（PC 不显示）═══ */
