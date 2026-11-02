@@ -1434,5 +1434,52 @@
     }
   }
 
+  /* ═══ 状态快照钩子（IIFE 顶层，不在 init 内）═══════════════════════════
+     ★第十五次修订（2026-11-02）：打通「电脑 → 手机」同步链路
+     根因：桌面版的登记与行程存在电脑浏览器 localStorage；手机版是 GitHub Pages 静态站，
+           二者无通道 → 手机端行程表恒为空（种子 57 家的「拜访时间」全空、手动行程 0 条）。
+     方案：本机脚本用 Playwright 打开本页面 → 调 exportStateSnapshot() 得 {live, plan}
+           → 上传至 GitHub Pages 根目录 state.json；手机版启动时 fetch 并合并。
+     置于顶层的原因：手机版注入脚本需在任何时刻（DOMContentLoaded 前）就能取到这两个函数。 */
+  window.exportStateSnapshot=function(){
+    return {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      live: cloneRows(liveRows),
+      plan: cloneRows(planRowsManual)
+    };
+  };
+
+  /* 合并远端状态快照（手机版主用；桌面版亦可调用以回灌）
+     st = {version, exportedAt, live:[…], plan:[…]}
+     规则：① 本机已有同名条目 → 不覆盖（本机数据绝对优先）；
+           ② 合并后写回本机 localStorage —— 手机离线时仍能看到行程；
+           ③ 合并后整表重绘，行程表即时出现。 */
+  window.applyRemoteState=function(st){
+    if(!st || st.version!==1) return {ok:false, reason:'bad format'};
+    var addedLive=0, addedPlan=0;
+    if(Array.isArray(st.live) && st.live.length){
+      var have={}; liveRows.forEach(function(r){ have[r['企业机构']]=1; });
+      st.live.forEach(function(r){
+        if(!r || !r['企业机构']) return;
+        if(have[r['企业机构']]) return;      /* 本机已有同名 → 不覆盖 */
+        liveRows.push(cloneRows([r])[0]); have[r['企业机构']]=1; addedLive++;
+      });
+      liveRows.sort(byLiveDesc);
+    }
+    if(Array.isArray(st.plan)){
+      var haveId={}; planRowsManual.forEach(function(p){ haveId[p['id']]=1; });
+      st.plan.forEach(function(p){
+        if(!p || !p['id'] || haveId[p['id']]) return;
+        planRowsManual.push(cloneRows([p])[0]); haveId[p['id']]=1; addedPlan++;
+      });
+    }
+    if(addedLive || addedPlan){
+      saveLive(); savePlanManual();
+      renderAll();
+    }
+    return {ok:true, addedLive:addedLive, addedPlan:addedPlan, exportedAt:st.exportedAt||''};
+  };
+
   if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', init); } else { init(); }
 })();
