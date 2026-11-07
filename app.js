@@ -658,16 +658,40 @@
   }
   function savePlanManual(){ lsSet(LS_PLAN, JSON.stringify(planRowsManual)); }
 
-  /* 本周 + 下周 双周窗口
-     ★第十次修订（2026-10-26）：周头按「法定工作周」显示——周一~周五，
-       形如 2026.10.26-2026.10.30；数据跨度仍覆盖周一~周日（周末若有行程照样显示）。 */
+  /* 行程窗口：本周 + 下周 +（有远期行程时）继续往后延伸
+     ★第十七次修订（2026-11-07）：原写死「本周+下周」双周，陛下 11-16 的行程落在
+       第三周 → 落窗之外，只被计入「更晚 N 项」而看不见（陛下报「添加了16号但工作天没显示」）。
+       改为：窗口自动延伸到「最后一条行程所在周」为止（封顶 8 周，防异常数据撑爆页面）。
+       空周不渲染（避免第三周起满屏空行），但该周一旦有行程即整周列出。 */
+  function planLastVisit(){
+    var far='';
+    liveRows.forEach(function(r){ var v=visitOf(r); if(v>far) far=v; });
+    planRowsManual.forEach(function(p){ var d=d10(p['日期']); if(d>far) far=d; });
+    return far;
+  }
   function planWindows(){
-    var w=weekRange();                 /* w = 下周（周一~周日） */
     var cur=mondayOf(todayStr());       /* 本周周一 */
-    return [
+    var w=weekRange();                  /* w = 下周（周一~周日） */
+    var wins=[
       {key:'cur', title:'本周', s:cur, e:addDays(cur,6), ws:cur, we:addDays(cur,4)},
       {key:'next',title:'下周', s:w.s,   e:w.e,       ws:w.s, we:addDays(w.s,4)}
     ];
+    var far=planLastVisit();
+    var lastEnd=w.e, idx=2;
+    while(far && far>lastEnd && idx<8){
+      var s=addDays(lastEnd,1);
+      wins.push({key:'w'+idx, title:(idx===2?'下下周':('第'+(idx+1)+'周')),
+                 s:s, e:addDays(s,6), ws:s, we:addDays(s,4)});
+      lastEnd=addDays(s,6); idx++;
+    }
+    return wins;
+  }
+  /* 实际要渲染的周：本周、下周恒显示；更远的周仅在有行程时显示 */
+  function planRenderWins(){
+    return planWindows().filter(function(w){
+      if(w.key==='cur'||w.key==='next') return true;
+      return planRows(w).length+planManualRows(w).length>0;
+    });
   }
   /* 日期显示：2026-10-26 → 2026.10.26 */
   function fmtDot(dstr){ return dstr?String(dstr).replace(/-/g,'.'):''; }
@@ -702,8 +726,9 @@
     });
   }
   function planOutCount(){
-    /* 窗口外（双周之外）：早于本周（含已过期）记为「已过期」，晚于下周记为「更晚」 */
-    var ws=planWindows(), lo=ws[0].s, hi=ws[1].e, past=0, later=0;
+    /* 窗口外：早于窗口起点记为「已过期」，晚于窗口末端记为「更晚」
+       ★窗口末端随延伸而变（不再固定为下周日） */
+    var ws=planWindows(), lo=ws[0].s, hi=ws[ws.length-1].e, past=0, later=0;
     liveRows.forEach(function(r){ var v=visitOf(r); if(!v) return;
       if(v<lo) past++; else if(v>hi) later++; });
     return {past:past,later:later};
@@ -889,11 +914,13 @@
     var panel=document.getElementById('planPanel'); if(!panel) return;
     if(!planOpen){ panel.style.display='none'; return; }
     panel.style.display='';
-    var wins=planWindows(), out=planOutCount();
+    var wins=planRenderWins(), out=planOutCount();
     var total=0;
     wins.forEach(function(w){ total+=planRows(w).length+planManualRows(w).length; });
+    /* ★表头随窗口延伸而变：不再写死「本周…｜下周…」两段 */
+    var rangeTxt=wins.map(function(w){ return esc(w.title)+' '+esc(workRangeText(w)); }).join('　｜　');
     var h='<div class="plan-head"><span class="pt">拜访行程表</span>'+
-      '<span class="pr">本周 '+esc(workRangeText(wins[0]))+'　｜　下周 '+esc(workRangeText(wins[1]))+'（法定工作周）</span></div>';
+      '<span class="pr">'+rangeTxt+'（法定工作周）</span></div>';
     h+=wins.map(planWeekHtml).join('');
     h+=planTbdHtml();          /* ★时间待定区块（不占具体某天） */
     h+=planAddHtml();
@@ -1041,11 +1068,11 @@
     });
   }
   function updatePlanTag(){
-    var wins=planWindows(), total=0;
+    var wins=planRenderWins(), total=0;
     wins.forEach(function(w){ total+=planRows(w).length+planManualRows(w).length; });
-    var ct=document.getElementById('planCnt'); if(ct) ct.textContent='本周+下周共 '+total+' 项';
+    var ct=document.getElementById('planCnt'); if(ct) ct.textContent='行程共 '+total+' 项';
     var rg=document.getElementById('planRange');
-    if(rg) rg.textContent='本周 '+workRangeText(wins[0])+' ~ 下周 '+workRangeText(wins[1]);
+    if(rg) rg.textContent=wins.map(function(w){ return w.title+' '+workRangeText(w); }).join(' ~ ');
   }
   function togglePlan(){
     planOpen=!planOpen;
@@ -1067,8 +1094,8 @@
     var st={}; GROUPS.forEach(function(g){ st[g.key]=0; });
     liveRows.forEach(function(r){ var g=groupOf(r); st[g]=(st[g]||0)+1; });
     var weekN=liveRows.filter(function(r){ return tagOf(r)==='本周重点'; }).length;
-    var planN=0; planWindows().forEach(function(w){ planN+=planRows(w).length+planManualRows(w).length; });
-    el.innerHTML='信息来源：窗口内 <b>'+total+'</b> 篇 ｜ 营销匹配：前瞻 / 企业 / 机构 3 期 ｜ 正在营销：<b>'+liveRows.length+'</b> 家（授信 '+st['授信']+' · 拜访 '+st['拜访']+' · 活动 '+st['活动']+' · 潜在机会 '+st['潜在机会']+' · 其他待办 '+st['其他待办']+'）｜ 本周重点 <b>'+weekN+'</b> 家 ｜ 本周+下周行程 <b>'+planN+'</b> 项';
+    var planN=0; planRenderWins().forEach(function(w){ planN+=planRows(w).length+planManualRows(w).length; });
+    el.innerHTML='信息来源：窗口内 <b>'+total+'</b> 篇 ｜ 营销匹配：前瞻 / 企业 / 机构 3 期 ｜ 正在营销：<b>'+liveRows.length+'</b> 家（授信 '+st['授信']+' · 拜访 '+st['拜访']+' · 活动 '+st['活动']+' · 潜在机会 '+st['潜在机会']+' · 其他待办 '+st['其他待办']+'）｜ 本周重点 <b>'+weekN+'</b> 家 ｜ 行程 <b>'+planN+'</b> 项';
   }
 
   function renderAll(){ renderSnap(); renderSnapBadge(); renderLive(); updatePlanTag(); renderPlan(); renderFocus(); bindReadMarkers(); updateReadStat(); refreshReadCascade(); }
@@ -1168,11 +1195,12 @@
   var mdTimer=null;
   function mdCell(s){ return String(s==null?'':s).replace(/\|/g,'\\|').replace(/\s+/g,' ').trim()||'—'; }
   function buildLiveMD(){
-    var wins=planWindows(), planN=0;
+    var wins=planRenderWins(), planN=0;
     wins.forEach(function(w){ planN+=planRows(w).length+planManualRows(w).length; });
+    var winTxt=wins.map(function(w){ return w.title+' '+workRangeText(w); }).join(' ~ ');
     var L=['# 营销作战板 · 第三部登记备份','',
       '> 自动导出时间：'+new Date().toLocaleString('zh-CN')+' ｜ 正在营销共 '+liveRows.length+' 家',
-      '> 拜访行程（本周 '+workRangeText(wins[0])+' ~ 下周 '+workRangeText(wins[1])+'）：'+planN+' 项（含手动 '+planRowsManual.length+' 条）',
+      '> 拜访行程（'+winTxt+'）：'+planN+' 项（含手动 '+planRowsManual.length+' 条）',
       '> 重点节奏为**滚动档位**：随日期自动前进（上周填的「下周重点」本周即显示为「本周重点」）',''];
     GROUPS.forEach(function(g){
       var gr=liveRows.filter(function(r){ return groupOf(r)===g.key; });
@@ -1185,7 +1213,7 @@
       L.push('');
     });
     /* ★拜访行程表（含手动添加的行程） */
-    L.push('## 拜访行程表（本周+下周）','');
+    L.push('## 拜访行程表（'+winTxt+'）','');
     var any=false;
     wins.forEach(function(w){
       L.push('### '+w.title+'（'+workRangeText(w)+' 法定工作周）','');
