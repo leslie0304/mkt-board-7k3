@@ -1559,7 +1559,7 @@
     if(!snapRows.length){
       snapRows = loadRows(LS_SNAP, SEED_SNAP).sort(byDateDesc);
     }
-    renderSnap(); renderSnapBadge();
+    renderSnap(); renderSnapBadge(); renderFocus();
     return {ok:true, n:snapRows.length};
   };
 
